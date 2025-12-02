@@ -1,0 +1,19 @@
+logs*
+
+# Environment variables with secrets
+.env
+
+# Plex data directories (keep only compose file)
+plex/Library/
+plex/Preferences.xml
+
+# Service databases and runtime files
+*.db
+*.db-shm
+*.db-wal
+*.pid
+*.log
+
+# Maintainerr data
+maintainerr/logs/
+maintainerr/*.sqlite

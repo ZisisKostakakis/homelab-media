@@ -1,0 +1,162 @@
+version: '3.9'
+services:
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - VPN_SERVICE_PROVIDER=protonvpn
+      - VPN_TYPE=wireguard
+      - TZ=Europe/London
+      - FIREWALL=on
+      - UPDATER_PERIOD=24h
+      # Placeholders below - replace with your config keys
+      - WIREGUARD_PRIVATE_KEY=YOUR_PRIVATE_KEY
+      - WIREGUARD_ADDRESSES=YOUR_ADDRESSES
+      - SERVER_CITIES=London
+    ports:
+      - 8080:8080 # qBittorrent Web UI
+      - 8989:8989 # Sonarr
+      - 7878:7878 # Radarr
+      - 9696:9696 # Prowlarr
+      - 6767:6767 # Bazarr
+      - 8191:8191 # FlareSolverr
+    volumes:
+      - /mnt/media/config/gluetun:/gluetun
+    restart: unless-stopped
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent
+    container_name: qbittorrent
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+      - WEBUI_PORT=8080
+    volumes:
+      - /mnt/media/downloads:/downloads
+      - /mnt/media/config/qbittorrent:/config
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    restart: unless-stopped
+
+  sonarr:
+    image: lscr.io/linuxserver/sonarr
+    container_name: sonarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+    volumes:
+      - /mnt/media/config/sonarr:/config
+      - /mnt/media/tv:/tv
+      - /mnt/media/downloads:/downloads
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    restart: unless-stopped
+
+  radarr:
+    image: lscr.io/linuxserver/radarr
+    container_name: radarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+    volumes:
+      - /mnt/media/config/radarr:/config
+      - /mnt/media/movies:/movies
+      - /mnt/media/downloads:/downloads
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    restart: unless-stopped
+
+  bazarr:
+    image: lscr.io/linuxserver/bazarr
+    container_name: bazarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+    volumes:
+      - /mnt/media/config/bazarr:/config
+      - /mnt/media/tv:/tv
+      - /mnt/media/movies:/movies
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    restart: unless-stopped
+
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr
+    container_name: prowlarr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+    volumes:
+      - /mnt/media/config/prowlarr:/config
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    restart: unless-stopped
+
+  flaresolverr:
+    image: flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    environment:
+      - LOG_LEVEL=info
+      - TZ=Europe/London
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+    restart: unless-stopped
+
+  unpackerr:
+    image: golift/unpackerr
+    container_name: unpackerr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+      - UN_SONARR_0_URL=http://sonarr:8989
+      - UN_SONARR_0_API_KEY=YOUR_SONARR_API_KEY
+      - UN_RADARR_0_URL=http://radarr:7878
+      - UN_RADARR_0_API_KEY=YOUR_RADARR_API_KEY
+    volumes:
+      - /mnt/media/downloads:/downloads
+    depends_on:
+      - sonarr
+      - radarr
+    restart: unless-stopped
+
+  recyclarr:
+    image: recyclarr/recyclarr
+    container_name: recyclarr
+    environment:
+      - TZ=Europe/London
+    volumes:
+      - /mnt/media/config/recyclarr:/config
+    depends_on:
+      - sonarr
+      - radarr
+    restart: unless-stopped
+
+  plex:
+    image: lscr.io/linuxserver/plex
+    container_name: plex
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+      - VERSION=docker
+    network_mode: host
+    volumes:
+      - /mnt/media/config/plex:/config
+      - /mnt/media/tv:/tv
+      - /mnt/media/movies:/movies
+      - /mnt/media/downloads:/downloads
+    restart: unless-stopped

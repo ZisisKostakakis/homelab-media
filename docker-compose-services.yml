@@ -1,0 +1,54 @@
+# User-Facing Services Stack
+# Non-VPN services: Overseerr, Maintainerr, Pulse
+# These services don't need VPN and can run independently
+
+services:
+  overseerr:
+    image: lscr.io/linuxserver/overseerr
+    container_name: overseerr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    ports:
+      - 5055:5055
+    volumes:
+      - /var/lib/homelab-media-configs/overseerr:/config
+    networks:
+      - media_network
+    restart: unless-stopped
+
+  maintainerr:
+    image: jorenn92/maintainerr:latest
+    container_name: maintainerr
+    restart: unless-stopped
+    user: ${PUID}:${PGID}
+    ports:
+      - 6246:6246
+    volumes:
+      - /var/lib/homelab-media-configs/maintainerr:/opt/data
+    environment:
+      - TZ=${TZ_MAINTAINERR}
+    networks:
+      - media_network
+
+  pulse:
+    image: rcourtman/pulse:latest
+    container_name: pulse
+    restart: unless-stopped
+    ports:
+      - 7655:7655
+    volumes:
+      - pulse_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - TZ=${TZ}
+    networks:
+      - media_network
+
+networks:
+  media_network:
+    driver: bridge
+
+volumes:
+  pulse_data:

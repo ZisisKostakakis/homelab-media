@@ -1,3 +1,6 @@
+# Torrent Stack - VPN-dependent services
+# Services that require VPN protection for downloading/automation
+
 services:
   gluetun:
     image: qmcgaw/gluetun:latest
@@ -15,10 +18,8 @@ services:
       - SERVER_CITIES=${SERVER_CITIES}
       - VPN_PORT_FORWARDING=on
       - VPN_PORT_FORWARDING_PROVIDER=protonvpn
-      # CRITICAL: Allow access to your local network and media_network Docker bridge
-      - "FIREWALL_OUTBOUND_SUBNETS=192.168.1.0/24,172.19.0.0/16"
-      # Disable DNS-over-TLS to fix DNS resolution issues through VPN
-      - DOT=off
+      # CRITICAL: Allow access to your local network
+      - FIREWALL_OUTBOUND_SUBNETS=${FIREWALL_OUTBOUND_SUBNETS}
     ports:
       - 8080:8080 # qBittorrent
       - 8989:8989 # Sonarr
@@ -26,7 +27,6 @@ services:
       - 9696:9696 # Prowlarr
       - 6767:6767 # Bazarr
       - 8191:8191 # FlareSolverr
-      # Removed Overseerr port from here
     volumes:
       - /var/lib/homelab-media-configs/gluetun:/gluetun
     restart: unless-stopped
@@ -152,72 +152,3 @@ services:
     depends_on:
       - gluetun
     restart: unless-stopped
-
-  overseerr:
-    image: lscr.io/linuxserver/overseerr
-    container_name: overseerr
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
-    ports:
-      - 5055:5055
-    volumes:
-      - /var/lib/homelab-media-configs/overseerr:/config
-    networks:
-      - media_network
-    # REMOVED: network_mode: "service:gluetun" -> Overseerr stays on normal bridge
-    restart: unless-stopped
-
-  maintainerr:
-    image: ghcr.io/maintainerr/maintainerr:latest
-    container_name: maintainerr
-    restart: unless-stopped
-    user: ${PUID}:${PGID}
-    ports:
-      - 6246:6246
-    volumes:
-      - /var/lib/homelab-media-configs/maintainerr:/opt/data
-    environment:
-      - TZ=${TZ_MAINTAINERR}
-    networks:
-      - media_network
-
-  plex:
-    image: lscr.io/linuxserver/plex
-    container_name: plex
-    network_mode: host
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
-      - VERSION=docker
-      - PLEX_CLAIM=${PLEX_CLAIM}
-    volumes:
-      - /var/lib/homelab-media-configs/plex:/config
-      - /mnt/media/transcode:/transcode
-      - /mnt/media:/data
-    devices:
-      - /dev/dri:/dev/dri
-    restart: unless-stopped
-
-  pulse:
-    image: rcourtman/pulse:latest
-    container_name: pulse
-    restart: unless-stopped
-    ports:
-      - 7655:7655
-    volumes:
-      - pulse_data:/data
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    environment:
-      - TZ=${TZ}
-    networks:
-      - media_network
-
-networks:
-  media_network:
-    driver: bridge
-
-volumes:
-  pulse_data:

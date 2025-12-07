@@ -1,34 +1,21 @@
+# Plex Media Server Stack
+# Independent stack for Plex - can run separately from torrent automation
+
 services:
   plex:
     image: lscr.io/linuxserver/plex
     container_name: plex
     network_mode: host
     environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/London
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
       - VERSION=docker
-      - PLEX_CLAIM=claim-yvN9VD7W4EXjXxmTsMKi
+      - PLEX_CLAIM=${PLEX_CLAIM}
     volumes:
-      - /mnt/media/config/plex:/config
+      - /var/lib/homelab-media-configs/plex:/config
       - /mnt/media/transcode:/transcode
-      - /mnt/media:/data  # Matches your original mount path
+      - /mnt/media:/data
     devices:
-      - /dev/dri:/dev/dri # Passes GPU access to Plex
+      - /dev/dri:/dev/dri
     restart: unless-stopped
-
-  pulse:
-    image: rcourtman/pulse:latest
-    container_name: pulse
-    restart: unless-stopped
-    ports:
-      - 7655:7655
-    volumes:
-      - pulse_data:/data
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    environment:
-      - TZ=Europe/London
-
-volumes:
-  pulse_data:
-

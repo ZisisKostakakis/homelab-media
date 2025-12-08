@@ -18,8 +18,10 @@ services:
       - SERVER_CITIES=${SERVER_CITIES}
       - VPN_PORT_FORWARDING=on
       - VPN_PORT_FORWARDING_PROVIDER=protonvpn
-      # CRITICAL: Allow access to your local network
-      - FIREWALL_OUTBOUND_SUBNETS=${FIREWALL_OUTBOUND_SUBNETS}
+      # CRITICAL: Allow access to your local network and media_network Docker bridge
+      - "FIREWALL_OUTBOUND_SUBNETS=192.168.1.0/24,172.19.0.0/16"
+      # Disable DNS-over-TLS to fix DNS resolution issues through VPN
+      - DOT=off
     ports:
       - 8080:8080 # qBittorrent
       - 8989:8989 # Sonarr
@@ -27,8 +29,11 @@ services:
       - 9696:9696 # Prowlarr
       - 6767:6767 # Bazarr
       - 8191:8191 # FlareSolverr
+      - 2468:2468 # cross-seed
     volumes:
       - /var/lib/homelab-media-configs/gluetun:/gluetun
+    networks:
+      - media_network
     restart: unless-stopped
 
   qbittorrent:
@@ -112,6 +117,7 @@ services:
     environment:
       - LOG_LEVEL=info
       - TZ=${TZ}
+      - BROWSER_DNS=1.1.1.1
     network_mode: "service:gluetun"
     depends_on:
       - gluetun
@@ -152,3 +158,26 @@ services:
     depends_on:
       - gluetun
     restart: unless-stopped
+
+  cross-seed:
+    image: crossseed/cross-seed:latest
+    container_name: cross-seed
+    command: daemon
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - /var/lib/homelab-media-configs/cross-seed:/config
+      - /mnt/media:/data
+      - /var/lib/homelab-media-configs/qbittorrent/qBittorrent/BT_backup:/torrents:ro
+    network_mode: "service:gluetun"
+    depends_on:
+      - gluetun
+      - qbittorrent
+    restart: unless-stopped
+
+networks:
+  media_network:
+    external: true
+    name: homelab-media_media_network

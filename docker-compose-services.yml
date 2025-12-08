@@ -19,7 +19,7 @@ services:
     restart: unless-stopped
 
   maintainerr:
-    image: jorenn92/maintainerr:latest
+    image: ghcr.io/maintainerr/maintainerr:latest
     container_name: maintainerr
     restart: unless-stopped
     user: ${PUID}:${PGID}

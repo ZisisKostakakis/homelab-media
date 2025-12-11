@@ -17,3 +17,4 @@ plex/Preferences.xml
 # Maintainerr data
 maintainerr/logs/
 maintainerr/*.sqlite
+.aider*

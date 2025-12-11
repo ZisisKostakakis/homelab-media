@@ -18,3 +18,5 @@ plex/Preferences.xml
 maintainerr/logs/
 maintainerr/*.sqlite
 .aider*
+fingerprint
+openrouter*

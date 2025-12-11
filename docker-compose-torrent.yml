@@ -1,45 +1,53 @@
 # Torrent Stack - VPN-dependent services
 # Services that require VPN protection for downloading/automation
-
 services:
   gluetun:
     image: qmcgaw/gluetun:latest
     container_name: gluetun
     cap_add:
       - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
     environment:
       - VPN_SERVICE_PROVIDER=protonvpn
       - VPN_TYPE=wireguard
       - TZ=${TZ}
       - FIREWALL=on
-      - UPDATER_PERIOD=24h
+      
+      # FIX: Lower MTU to prevent packet drops (silent failure)
+      - WIREGUARD_MTU=1280
+      - WIREGUARD_PERSISTENT_KEEPALIVE=25
+      
       - WIREGUARD_PRIVATE_KEY=${WIREGUARD_PRIVATE_KEY}
-      - WIREGUARD_ADDRESSES=${WIREGUARD_ADDRESSES}
       - SERVER_CITIES=${SERVER_CITIES}
+      - PORT_FORWARD_ONLY=on
       - VPN_PORT_FORWARDING=on
-      - VPN_PORT_FORWARDING_PROVIDER=protonvpn
-      # CRITICAL: Allow access to your local network and media_network Docker bridge
-      - FIREWALL_OUTBOUND_SUBNETS=192.168.1.0/24,172.19.0.0/16
-      # Disable DNS-over-TLS to fix DNS resolution issues through VPN
-      - DOT=off
-      # Healthcheck: Switch from ICMP to DNS for more reliability through VPN
-      - HEALTH_TARGET_ADDRESSES=cloudflare.com:443,github.com:443,google.com:443
-      - HEALTH_SMALL_CHECK_TYPE=dns
+      
+      # FIX: Correct Deprecated DNS Variables
+      - DNS_ADDRESS=1.1.1.1
+      - DOT=off  # Explicitly disabled
+      
+      # FIX: Correct Healthcheck Variables
+      - HEALTH_TARGET_ADDRESS=cloudflare.com:443
       - HEALTH_DNS_TARGET_HOSTS=cloudflare.com,google.com
-      - HEALTH_ICMP_TARGET_IPS=
-      - HEALTH_SERVER_ADDRESS=127.0.0.1:9999
-      - HEALTH_RESTART_VPN=off  # Start disabled for testing, enable once stable
-      # Port forwarding auto-update command
-      - VPN_PORT_FORWARDING_UP_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":{{PORT}},\"current_network_interface\":\"{{VPN_INTERFACE}}\",\"random_port\":false,\"upnp\":false}" http://127.0.0.1:8080/api/v2/app/setPreferences 2>&1'
+      - HEALTH_VPN_DURATION_INITIAL=30s  # Give it more time to connect before checking
+      
+      # Subnets
+      - FIREWALL_OUTBOUND_SUBNETS=192.168.1.0/24,172.19.0.0/16
+      
+      # Port Forwarding Command - Added a sleep to let qBit start
+      # NOTE: We use 'sleep 10' to give qBittorrent time to initialize its Web UI
+      - VPN_PORT_FORWARDING_UP_COMMAND=/bin/sh -c 'sleep 15; wget -O- --retry-connrefused --post-data "json={\"listen_port\":{{PORTS}},\"current_network_interface\":\"tun0\"}" http://127.0.0.1:8080/api/v2/app/setPreferences 2>&1'
       - VPN_PORT_FORWARDING_DOWN_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":0,\"current_network_interface\":\"lo\"}" http://127.0.0.1:8080/api/v2/app/setPreferences 2>&1'
+    
     ports:
-      - 8080:8080 # qBittorrent
-      - 8989:8989 # Sonarr
-      - 7878:7878 # Radarr
-      - 9696:9696 # Prowlarr
-      - 6767:6767 # Bazarr
-      - 8191:8191 # FlareSolverr
-      - 2468:2468 # cross-seed
+      - 8080:8080
+      - 8989:8989
+      - 7878:7878
+      - 9696:9696
+      - 6767:6767
+      - 8191:8191
+      - 2468:2468
     volumes:
       - /var/lib/homelab-media-configs/gluetun:/gluetun
     networks:
@@ -51,6 +59,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
 
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent
@@ -188,7 +197,6 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
-      # Use 'localhost' because they share the same network namespace (gluetun)
       - UN_SONARR_0_URL=http://localhost:8989
       - UN_SONARR_0_API_KEY=${SONARR_API_KEY}
       - UN_RADARR_0_URL=http://localhost:7878
@@ -197,18 +205,13 @@ services:
       - /mnt/media:/data
     network_mode: "service:gluetun"
     depends_on:
-      - gluetun
+      gluetun:
+        condition: service_healthy
     restart: unless-stopped
 
   recyclarr:
     image: recyclarr/recyclarr
     container_name: recyclarr
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep -fa recyclarr || exit 0"]
-      interval: 10m
-      timeout: 10s  
-      retries: 1
-      start_period: 5m
     user: 1000:1000
     environment:
       - TZ=${TZ}
@@ -220,18 +223,19 @@ services:
       - /var/lib/homelab-media-configs/recyclarr:/config
     network_mode: "service:gluetun"
     depends_on:
-      - gluetun
+      gluetun:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -fa recyclarr || exit 0"]
+      interval: 10m
+      timeout: 10s
+      retries: 1
+      start_period: 5m
     restart: unless-stopped
 
   cross-seed:
     image: crossseed/cross-seed:latest
     container_name: cross-seed
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:2468/api/webhook || exit 0"]
-      interval: 5m
-      timeout: 30s
-      retries: 1
-      start_period: 5m
     command: daemon
     environment:
       - PUID=${PUID}
@@ -243,11 +247,20 @@ services:
       - /var/lib/homelab-media-configs/qbittorrent/qBittorrent/BT_backup:/torrents:ro
     network_mode: "service:gluetun"
     depends_on:
-      - gluetun
-      - qbittorrent
+      gluetun:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:2468/api/webhook || exit 0"]
+      interval: 5m
+      timeout: 30s
+      retries: 1
+      start_period: 5m
     restart: unless-stopped
 
 networks:
   media_network:
     external: true
     name: homelab-media_media_network
+

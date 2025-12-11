@@ -46,6 +46,23 @@ services:
     networks:
       - media_network
 
+  filebrowser:
+    image: filebrowser/filebrowser:s6
+    container_name: filebrowser
+    restart: unless-stopped
+    ports:
+      - 8181:80
+    volumes:
+      - /mnt/media:/srv
+      - /var/lib/homelab-media-configs/filebrowser/database:/database
+      - /var/lib/homelab-media-configs/filebrowser/config:/config
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    networks:
+      - media_network
+
 networks:
   media_network:
     driver: bridge

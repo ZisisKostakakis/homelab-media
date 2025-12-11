@@ -6,6 +6,12 @@ services:
     image: lscr.io/linuxserver/plex
     container_name: plex
     network_mode: host
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:32400/identity"]
+      interval: 2m
+      timeout: 30s  
+      retries: 2
+      start_period: 5m
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
@@ -31,6 +37,12 @@ services:
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - SUGGESTARR_PORT=${SUGGESTARR_PORT:-5000}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:${SUGGESTARR_PORT:-5000}"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 2m
     networks:
       - media_network
 

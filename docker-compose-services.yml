@@ -14,6 +14,12 @@ services:
       - 5055:5055
     volumes:
       - /var/lib/homelab-media-configs/overseerr:/config
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5055/api/v1/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 1m
     networks:
       - media_network
     restart: unless-stopped
@@ -29,6 +35,12 @@ services:
       - /var/lib/homelab-media-configs/maintainerr:/opt/data
     environment:
       - TZ=${TZ_MAINTAINERR}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6246"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
     networks:
       - media_network
 
@@ -43,6 +55,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       - TZ=${TZ}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7655 || exit 0"]
+      interval: 1m
+      timeout: 10s
+      retries: 2
+      start_period: 2m
     networks:
       - media_network
 
@@ -60,6 +78,27 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - media_network
+
+  autoheal:
+    image: willfarrell/autoheal:latest
+    container_name: autoheal
+    restart: unless-stopped
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=all
+      - AUTOHEAL_INTERVAL=10
+      - AUTOHEAL_START_PERIOD=0
+      - AUTOHEAL_DEFAULT_STOP_TIMEOUT=10
+      - AUTOHEAL_LOG_LEVEL=info
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - media_network
 

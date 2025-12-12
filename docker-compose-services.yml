@@ -1,5 +1,5 @@
 # User-Facing Services Stack
-# Non-VPN services: Overseerr, Maintainerr, Pulse
+# Non-VPN services: Overseerr, Maintainerr, Filebrowser
 # These services don't need VPN and can run independently
 
 services:
@@ -44,26 +44,6 @@ services:
     networks:
       - media_network
 
-  pulse:
-    image: rcourtman/pulse:latest
-    container_name: pulse
-    restart: unless-stopped
-    ports:
-      - 7655:7655
-    volumes:
-      - pulse_data:/data
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    environment:
-      - TZ=${TZ}
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:7655 || exit 0"]
-      interval: 1m
-      timeout: 10s
-      retries: 2
-      start_period: 2m
-    networks:
-      - media_network
-
   filebrowser:
     image: filebrowser/filebrowser:s6
     container_name: filebrowser
@@ -78,6 +58,8 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+    labels:
+      - "wud.watch=false"  # Exclude from WUD monitoring - s6 tag causes false positives
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80"]
       interval: 30s
@@ -102,9 +84,52 @@ services:
     networks:
       - media_network
 
-networks:
-  media_network:
-    driver: bridge
+  whatsupdocker:
+    image: getwud/wud:latest
+    container_name: wud
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - 3000:3000
+    environment:
+      # Authentication - Set username and password for WUD UI
+      - WUD_AUTH_BASIC_ADMIN_USER=admin
+      - WUD_AUTH_BASIC_ADMIN_HASH=$$apr1$$7QvzazFL$$JnWdEd57ERE23fgEVa/Aj.
+      # Update check schedule (daily at 6 AM)
+      - WUD_WATCHER_LOCAL_CRON=0 6 * * *
+      # Ntfy Trigger - Send notifications when container updates are available
+      - WUD_TRIGGER_NTFY_HOMELAB_URL=https://ntfy.sh
+      - WUD_TRIGGER_NTFY_HOMELAB_TOPIC=blaze-homelab-wud-docker-updates
+      - WUD_TRIGGER_NTFY_HOMELAB_PRIORITY=3  # 1=min, 3=default, 5=max
+      - WUD_TRIGGER_NTFY_HOMELAB_MODE=batch  # batch = one notification for all updates
+    healthcheck:
+      test: curl --fail http://localhost:${WUD_SERVER_PORT:-3000}/health || exit 1
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - media_network
+
+  portainer:
+    container_name: portainer
+    image: portainer/portainer-ce:lts
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    ports:
+      - 9443:9443
+      - 8000:8000  # Remove if you do not intend to use Edge Agents
 
 volumes:
-  pulse_data:
+  portainer_data:
+    name: portainer_data
+
+networks:
+  default:
+    name: portainer_network
+  media_network:
+    name: homelab_media_network
+    driver: bridge

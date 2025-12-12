@@ -262,5 +262,5 @@ services:
 networks:
   media_network:
     external: true
-    name: homelab-media_media_network
+    name: homelab_media_network
 

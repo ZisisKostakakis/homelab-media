@@ -27,23 +27,23 @@ mkdir -p "$DATA_BASE/downloads" "$DATA_BASE/tv" "$DATA_BASE/movies" "$DATA_BASE/
 
 # Pull docker images for all modular stacks
 echo "Pulling images for services stack..."
-docker compose -f docker-compose-services.yml pull
+docker compose -p homelab-services -f docker-compose-services.yml pull
 
 echo "Pulling images for torrent stack..."
-docker compose -f docker-compose-torrent.yml pull
+docker compose -p homelab-torrent -f docker-compose-torrent.yml pull
 
 echo "Pulling images for plex stack..."
-docker compose -f docker-compose-plex.yml pull
+docker compose -p homelab-plex -f docker-compose-plex.yml pull
 
 # Start all containers in order (services first to create media_network)
 echo "Starting services stack (Overseerr, Maintainerr, Pulse)..."
-docker compose -f docker-compose-services.yml up -d
+docker compose -p homelab-services -f docker-compose-services.yml up -d
 
 echo "Starting torrent stack (VPN + downloaders)..."
-docker compose -f docker-compose-torrent.yml up -d
+docker compose -p homelab-torrent -f docker-compose-torrent.yml up -d
 
 echo "Starting plex stack..."
-docker compose -f docker-compose-plex.yml up -d
+docker compose -p homelab-plex -f docker-compose-plex.yml up -d
 
 echo ""
 echo "--- Homelab Media Stack is launching! ---"

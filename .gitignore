@@ -1,22 +1,15 @@
-logs*
-
-# Environment variables with secrets
+# Environment variables (contains secrets)
 .env
 
-# Plex data directories (keep only compose file)
-plex/Library/
-plex/Preferences.xml
+# Temporary files
+errors.txt
+plan.md
 
-# Service databases and runtime files
-*.db
-*.db-shm
-*.db-wal
-*.pid
+# Docker volumes
+/maintainerr/
+
+# Config backups (may contain API keys)
+config-backups/
+
+# Logs
 *.log
-
-# Maintainerr data
-maintainerr/logs/
-maintainerr/*.sqlite
-.aider*
-fingerprint
-openrouter*

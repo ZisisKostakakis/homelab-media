@@ -125,6 +125,10 @@ services:
       - WUD_TRIGGER_NTFY_HOMELAB_TOPIC=blaze-homelab-wud-docker-updates
       - WUD_TRIGGER_NTFY_HOMELAB_PRIORITY=3  # 1=min, 3=default, 5=max
       - WUD_TRIGGER_NTFY_HOMELAB_MODE=batch  # batch = one notification for all updates
+      # Webhook Trigger - Automatically update containers via webhook
+      - WUD_TRIGGER_WEBHOOK_AUTOUPDATE_URL=http://wud-webhook:8182
+      - WUD_TRIGGER_WEBHOOK_AUTOUPDATE_METHOD=POST
+      - WUD_TRIGGER_WEBHOOK_AUTOUPDATE_MODE=simple  # simple = trigger for each container
     healthcheck:
       test: curl --fail http://localhost:${WUD_SERVER_PORT:-3000}/health || exit 1
       interval: 10s
@@ -132,6 +136,29 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
+    networks:
+      - media_network
+
+  wud-webhook:
+    image: python:3.11-alpine
+    container_name: wud-webhook
+    restart: unless-stopped
+    command: /bin/sh -c "apk add --no-cache docker-cli docker-cli-compose bash curl && python3 /scripts/wud-webhook-server.py"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./scripts:/scripts:ro
+      - .:/homelab:ro  # Mount project directory for stack-manage.sh
+      - /var/lib/homelab-media-configs/wud-updates:/var/lib/homelab-media-configs/wud-updates
+    environment:
+      - TZ=${TZ}
+    ports:
+      - 8182:8182
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8182/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - media_network
 

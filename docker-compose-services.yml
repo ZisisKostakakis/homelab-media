@@ -84,6 +84,29 @@ services:
     networks:
       - media_network
 
+  gluetun-monitor:
+    image: alpine:latest
+    container_name: gluetun-monitor
+    restart: unless-stopped
+    command: /bin/sh -c "apk add --no-cache docker-cli curl && /scripts/gluetun-cascade-restart.sh"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./scripts:/scripts:ro
+      - .:/homelab:ro  # Mount project directory for stack-manage.sh
+      - /var/lib/homelab-media-configs/gluetun-monitor:/config
+    environment:
+      - TZ=${TZ}
+    networks:
+      - media_network
+    labels:
+      - "autoheal.stop=true"  # Don't let autoheal interfere with monitor
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "gluetun-cascade-restart.sh"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
   whatsupdocker:
     image: getwud/wud:latest
     container_name: wud

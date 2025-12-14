@@ -187,8 +187,8 @@ cascade_restart_torrent_stack() {
         -v /var/run/docker.sock:/var/run/docker.sock \
         -v /root/Github/homelab-media:/workdir \
         -w /workdir \
-        docker/compose:latest \
-        -p homelab-torrent -f docker-compose-torrent.yml up -d 2>&1 | grep -v "Pulling" | grep -v "Downloaded" || true; then
+        docker/compose:1.29.2 \
+        -p homelab-torrent -f docker-compose-torrent.yml up -d --no-deps qbittorrent sonarr radarr prowlarr bazarr flaresolverr unpackerr recyclarr cross-seed 2>&1 | grep -vE "(Pulling|Downloaded|Network|Volume)" || true; then
         log_event "INFO" "Services recreated successfully"
     else
         log_event "ERROR" "Failed to recreate services"

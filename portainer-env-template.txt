@@ -1,0 +1,40 @@
+# ============================================
+# PORTAINER ENVIRONMENT VARIABLES
+# Copy these values when creating stacks
+# ============================================
+
+# ----------------
+# homelab-services
+# ----------------
+PUID=1000
+PGID=1000
+TZ=Europe/London
+TZ_MAINTAINERR=Europe/Belfast
+
+# ----------------
+# homelab-torrent
+# ----------------
+PUID=1000
+PGID=1000
+TZ=Europe/London
+WIREGUARD_PRIVATE_KEY=<FROM YOUR .env FILE>
+WIREGUARD_ADDRESSES=10.2.0.2/32
+SERVER_CITIES=London
+FIREWALL_OUTBOUND_SUBNETS=192.168.1.0/24
+SONARR_API_KEY=<FROM YOUR .env FILE>
+RADARR_API_KEY=<FROM YOUR .env FILE>
+
+# ----------------
+# homelab-plex
+# ----------------
+PUID=1000
+PGID=1000
+TZ=Europe/London
+PLEX_CLAIM=<GET FROM https://www.plex.tv/claim/>
+
+# ============================================
+# NOTES:
+# - Replace <FROM YOUR .env FILE> with actual values
+# - Plex claim tokens expire in 4 minutes
+# - NEVER commit .env to Git
+# ============================================

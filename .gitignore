@@ -17,3 +17,9 @@ config-backups/
 .aider*
 openrouter*
 beszel*
+
+# Recyclarr cache and config (may contain API keys and generated files)
+recyclarr/cache/
+recyclarr/recyclarr.yml
+recyclarr/recyclarr.yml.backup
+recyclarr/settings.yml

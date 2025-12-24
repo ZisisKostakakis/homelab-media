@@ -220,7 +220,7 @@ services:
       - SONARR_URL=http://localhost:8989
       - RADARR_URL=http://localhost:7878
     volumes:
-      - /var/lib/homelab-media-configs/recyclarr:/config
+      - ./recyclarr:/config
     network_mode: "service:gluetun"
     depends_on:
       gluetun:
@@ -237,6 +237,7 @@ services:
     image: crossseed/cross-seed:latest
     container_name: cross-seed
     command: daemon
+    user: 1000:1000
     environment:
       - PUID=${PUID}
       - PGID=${PGID}

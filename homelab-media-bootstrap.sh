@@ -23,7 +23,7 @@ mkdir -p "$CONFIG_BASE/gluetun" \
          "$CONFIG_BASE/overseerr" \
          "$CONFIG_BASE/maintainerr" \
          "$CONFIG_BASE/plex"
-mkdir -p "$DATA_BASE/downloads" "$DATA_BASE/tv" "$DATA_BASE/movies" "$DATA_BASE/transcode"
+mkdir -p "$DATA_BASE/downloads" "$DATA_BASE/tv" "$DATA_BASE/movies" "$DATA_BASE/transcode" "$DATA_BASE/anime/tv" "$DATA_BASE/anime/movies"
 
 # Pull docker images for all modular stacks
 echo "Pulling images for services stack..."

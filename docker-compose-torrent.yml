@@ -129,7 +129,7 @@ services:
     restart: unless-stopped
 
   bazarr:
-    image: lscr.io/linuxserver/bazarr
+    image: lscr.io/linuxserver/bazarr:1.5.2
     container_name: bazarr
     environment:
       - PUID=${PUID}

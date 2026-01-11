@@ -46,6 +46,28 @@ services:
     networks:
       - media_network
 
+  kitana:
+    image: pannal/kitana:latest
+    container_name: kitana
+    restart: unless-stopped
+    ports:
+      - "${KITANA_PORT:-31337}:31337"
+    volumes:
+      - /var/lib/homelab-media-configs/kitana:/app/data
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    command: -B 0.0.0.0:31337
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:31337"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - media_network
+
 networks:
   media_network:
     external: true

@@ -1,0 +1,6 @@
+FROM lscr.io/linuxserver/sonarr:latest
+
+# Install ffmpeg for runtime detection
+RUN apk update && \
+    apk add --no-cache ffmpeg && \
+    rm -rf /var/cache/apk/*

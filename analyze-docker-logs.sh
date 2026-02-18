@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # Default time period
-TIME_PERIOD="1h"
+TIME_PERIOD="24h"
 
 # Docker Compose projects to analyze (project-name:compose-file)
 declare -A COMPOSE_PROJECTS=(
@@ -26,7 +26,7 @@ while [[ $# -gt 0 ]]; do
         -h|--help)
             echo "Usage: $0 [--since TIME]"
             echo "  --since: Time period to analyze (e.g., 1h, 30m, 24h, 2d)"
-            echo "  Default: 1h"
+            echo "  Default: 24h"
             exit 0
             ;;
         *)
@@ -90,15 +90,31 @@ analyze_container() {
     LOGS=$(docker logs --since="$TIME_PERIOD" "$container" 2>&1 || echo "")
 
     if [ -z "$LOGS" ]; then
-        echo "  No logs found"
+        # Check if container has any logs at all
+        ANY_LOGS=$(docker logs --tail 1 "$container" 2>&1 || echo "")
+        if [ -z "$ANY_LOGS" ]; then
+            echo "  No logs found (container has never logged)"
+        else
+            # Get the timestamp of the last log entry
+            LAST_LOG=$(docker logs --timestamps --tail 1 "$container" 2>&1 | head -1)
+            TIMESTAMP=$(echo "$LAST_LOG" | cut -d' ' -f1)
+            echo "  No logs in last $TIME_PERIOD (last log: $TIMESTAMP)"
+        fi
         echo ""
         return
     fi
 
-    # Count errors using ripgrep
-    ERROR_COUNT=$(echo "$LOGS" | rg -i "error|fatal|critical|exception|failed" -c 2>/dev/null || echo "0")
-    WARN_COUNT=$(echo "$LOGS" | rg -i "warn|warning" -c 2>/dev/null || echo "0")
+    # Count total log lines
+    LOG_LINE_COUNT=$(echo "$LOGS" | wc -l)
 
+    # Strip ANSI color codes before searching (they interfere with pattern matching)
+    CLEAN_LOGS=$(echo "$LOGS" | sed 's/\x1b\[[0-9;]*m//g')
+
+    # Count errors using grep
+    ERROR_COUNT=$(echo "$CLEAN_LOGS" | grep -iE "error|fatal|critical|exception|failed" | wc -l)
+    WARN_COUNT=$(echo "$CLEAN_LOGS" | grep -iE "warn|warning" | wc -l)
+
+    echo "  Total log lines: $LOG_LINE_COUNT"
     echo "  Errors: $ERROR_COUNT"
     echo "  Warnings: $WARN_COUNT"
 
@@ -106,14 +122,21 @@ analyze_container() {
     if [ "$ERROR_COUNT" -gt 0 ]; then
         echo ""
         echo "  Recent errors:"
-        echo "$LOGS" | rg -i "error|fatal|critical|exception|failed" | tail -5 | sed 's/^/    /'
+        echo "$CLEAN_LOGS" | grep -iE "error|fatal|critical|exception|failed" | tail -5 | sed 's/^/    /'
     fi
 
     # Show recent warnings
     if [ "$WARN_COUNT" -gt 0 ]; then
         echo ""
         echo "  Recent warnings:"
-        echo "$LOGS" | rg -i "warn|warning" | tail -3 | sed 's/^/    /'
+        echo "$CLEAN_LOGS" | grep -iE "warn|warning" | tail -3 | sed 's/^/    /'
+    fi
+
+    # Show sample of recent logs (last 3 lines) if no errors/warnings
+    if [ "$ERROR_COUNT" -eq 0 ] && [ "$WARN_COUNT" -eq 0 ] && [ "$LOG_LINE_COUNT" -gt 0 ]; then
+        echo ""
+        echo "  Recent activity (last 3 lines):"
+        echo "$LOGS" | tail -3 | sed 's/^/    /'
     fi
 
     echo ""
@@ -138,8 +161,10 @@ for project in "${!SERVICES_BY_PROJECT[@]}"; do
     for container in ${SERVICES_BY_PROJECT[$project]}; do
         LOGS=$(docker logs --since="$TIME_PERIOD" "$container" 2>&1 || echo "")
         if [ -n "$LOGS" ]; then
-            ERRORS=$(echo "$LOGS" | rg -i "error|fatal|critical|exception|failed" -c 2>/dev/null || echo "0")
-            WARNINGS=$(echo "$LOGS" | rg -i "warn|warning" -c 2>/dev/null || echo "0")
+            # Strip ANSI codes before counting
+            CLEAN_LOGS=$(echo "$LOGS" | sed 's/\x1b\[[0-9;]*m//g')
+            ERRORS=$(echo "$CLEAN_LOGS" | grep -iE "error|fatal|critical|exception|failed" | wc -l)
+            WARNINGS=$(echo "$CLEAN_LOGS" | grep -iE "warn|warning" | wc -l)
             TOTAL_ERRORS=$((TOTAL_ERRORS + ERRORS))
             TOTAL_WARNINGS=$((TOTAL_WARNINGS + WARNINGS))
         fi

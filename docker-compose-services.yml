@@ -173,9 +173,24 @@ services:
       - 9443:9443
       - 8000:8000  # Remove if you do not intend to use Edge Agents
 
+  beszel:
+    image: henrygd/beszel:latest
+    container_name: beszel
+    restart: unless-stopped
+    ports:
+      - 8090:8090
+    volumes:
+      - beszel_data:/beszel_data
+    environment:
+      - TZ=${TZ}
+    networks:
+      - media_network
+
 volumes:
   portainer_data:
     name: portainer_data
+  beszel_data:
+    name: beszel_data
 
 networks:
   default:

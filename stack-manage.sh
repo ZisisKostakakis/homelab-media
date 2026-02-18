@@ -8,6 +8,8 @@ STACK=$1
 ACTION=$2
 SERVICE=$3
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 show_usage() {
     echo "Usage: $0 <stack> <action> [service]"
     echo ""
@@ -20,7 +22,7 @@ show_usage() {
     echo "Actions:"
     echo "  start     - Start the stack/service"
     echo "  stop      - Stop the stack/service"
-    echo "  restart   - Restart the stack/service"
+    echo "  restart   - Restart the stack/service (recreates containers, picks up .env changes)"
     echo "  down      - Stop and remove containers"
     echo "  pull      - Pull latest images"
     echo "  update    - Pull images and recreate containers"
@@ -42,7 +44,7 @@ manage_stack() {
     local stack=$1
     local action=$2
     local service=$3
-    local compose_file="docker-compose-${stack}.yml"
+    local compose_file="${SCRIPT_DIR}/docker-compose-${stack}.yml"
     local project_name="homelab-${stack}"
 
     if [ ! -f "$compose_file" ]; then
@@ -64,7 +66,7 @@ manage_stack() {
             docker compose -p "$project_name" -f "$compose_file" stop $service
             ;;
         restart)
-            docker compose -p "$project_name" -f "$compose_file" restart $service
+            docker compose -p "$project_name" -f "$compose_file" up -d --force-recreate $service
             ;;
         down)
             if [ -n "$service" ]; then
@@ -78,7 +80,7 @@ manage_stack() {
             ;;
         update)
             docker compose -p "$project_name" -f "$compose_file" pull $service
-            docker compose -p "$project_name" -f "$compose_file" up -d $service
+            docker compose -p "$project_name" -f "$compose_file" up -d --force-recreate $service
             ;;
         logs)
             if [ -n "$service" ]; then

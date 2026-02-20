@@ -100,7 +100,7 @@ All services in this stack run inside the Gluetun VPN network namespace. They co
 | **gluetun-monitor** | `alpine` (custom script) | — | Cascade restarts torrent stack when Gluetun restarts |
 | **What's Up Docker** | `getwud/wud` | 3000 | Detects container image updates daily |
 | **wud-webhook** | `python:3.11-alpine` (custom) | 8182 | HTTP webhook receiver that applies WUD updates |
-| **Portainer** | `portainer/portainer-ce` | 9443 | Docker management UI |
+| **Portainer** | `portainer/portainer-ce` | 9443, 8000 | Docker management UI |
 | **Beszel** | `henrygd/beszel` | 8090 | System monitoring dashboard |
 
 ---
@@ -321,7 +321,7 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 
 ### Environment Variables
 
-Copy `.env.example` to `.env` (or create one) and populate:
+Copy `.env.example` to `.env` and populate:
 
 ```env
 # User/Group for file permissions
@@ -334,20 +334,27 @@ TZ_MAINTAINERR=Europe/Belfast
 
 # VPN
 WIREGUARD_PRIVATE_KEY=your_wireguard_private_key
+WIREGUARD_ADDRESSES=10.2.0.2/32
 SERVER_CITIES=London
+FIREWALL_OUTBOUND_SUBNETS=192.168.1.0/24
 
 # API Keys (obtain from each service's Settings > General after first start)
 SONARR_API_KEY=your_sonarr_api_key
 RADARR_API_KEY=your_radarr_api_key
+CROSS_SEED_API_KEY=your_cross_seed_api_key
+QBITTORRENT_PASSWORD=your_qbittorrent_password
 
 # Plex
 PLEX_CLAIM=claim-xxxxxxxxxxxxxxxxxxxx
 
-# Optional
+# Monitoring
+GLUETUN_MONITOR_NTFY_TOPIC=your_ntfy_topic
+BESZEL_AGENT_KEY=your_beszel_ssh_public_key
+
+# Optional port overrides
 SUGGESTARR_PORT=5000
 KITANA_PORT=31337
 TAUTULLI_PORT=8787
-WUD_SERVER_PORT=3000
 LOG_LEVEL=info
 ```
 
@@ -426,7 +433,16 @@ Creates a timestamped backup of all service configurations:
 # Output: config-backups/config-backup-YYYY-MM-DD_HH-MM-SS.tar.gz
 ```
 
-Includes: all service configs, docker-compose files, `.env`. Excludes: media files, logs, and cache.
+Includes: all service configs, docker-compose files, `.env`. Excludes: media files, logs, and cache. Retains the 5 most recent backups automatically.
+
+### analyze-docker-logs.sh
+
+Scans logs across all three stacks for errors and warnings:
+
+```bash
+./analyze-docker-logs.sh --since 24h
+# Reports error/warning counts per container with recent samples
+```
 
 ### Useful Docker Commands
 

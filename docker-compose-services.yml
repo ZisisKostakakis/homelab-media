@@ -190,12 +190,14 @@ services:
 volumes:
   portainer_data:
     name: portainer_data
+    external: true
   beszel_data:
     name: beszel_data
+    external: true
 
 networks:
   default:
     name: portainer_network
   media_network:
     name: homelab_media_network
-    driver: bridge
+    external: true

@@ -113,7 +113,7 @@ if [ "$STACK" = "all" ]; then
         exit 1
     fi
     for s in services torrent plex; do
-        manage_stack "$s" "$ACTION" "$SERVICE"
+        manage_stack "$s" "$ACTION" "$SERVICE" || echo "Warning: $s stack returned an error"
         echo ""
     done
 else

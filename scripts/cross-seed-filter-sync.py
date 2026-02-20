@@ -9,23 +9,27 @@ Author: Generated for homelab-media stack
 Date: 2025-12-15
 """
 
+import os
 import requests
 import re
 import logging
 import sys
 from typing import Set, Dict, List
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Configuration
 RADARR_URL = "http://localhost:7878"
-RADARR_API_KEY = "RADARR_API_KEY_REDACTED"
+RADARR_API_KEY = os.environ["RADARR_API_KEY"]
 
 SONARR_URL = "http://localhost:8989"
 SONARR_API_KEY = "REDACTED"
 
 QBITTORRENT_URL = "http://localhost:8080"
 QBITTORRENT_USERNAME = "admin"
-QBITTORRENT_PASSWORD = "QBITTORRENT_PASSWORD_REDACTED"
+QBITTORRENT_PASSWORD = os.environ["QBITTORRENT_PASSWORD"]
 
 CROSS_SEED_CONFIG_PATH = "/var/lib/homelab-media-configs/cross-seed/config.js"
 CROSS_SEED_CONTAINER_NAME = "cross-seed"

@@ -14,7 +14,6 @@ services:
       - TZ=${TZ}
       - FIREWALL=on
       
-      # FIX: Lower MTU to prevent packet drops (silent failure)
       - WIREGUARD_MTU=1280
       - WIREGUARD_PERSISTENT_KEEPALIVE=25
       
@@ -23,21 +22,20 @@ services:
       - PORT_FORWARD_ONLY=on
       - VPN_PORT_FORWARDING=on
       
-      # FIX: Correct Deprecated DNS Variables
       - DNS_ADDRESS=1.1.1.1
-      - DOT=off  # Explicitly disabled
+      #- DOT=off  # Explicitly disabled
       
-      # FIX: Correct Healthcheck Variables
-      - HEALTH_TARGET_ADDRESS=cloudflare.com:443
+      #- HEALTH_TARGET_ADDRESS=cloudflare.com:443
+      - HEALTH_TARGET_ADDRESSES=cloudflare.com:443
       - HEALTH_DNS_TARGET_HOSTS=cloudflare.com,google.com
-      - HEALTH_VPN_DURATION_INITIAL=30s  # Give it more time to connect before checking
+      #- HEALTH_VPN_DURATION_INITIAL=30s  # Give it more time to connect before checking, is obsolete
       
       # Subnets
       - FIREWALL_OUTBOUND_SUBNETS=192.168.1.0/24,172.19.0.0/16
       
       # Port Forwarding Command - Added a sleep to let qBit start
       # NOTE: We use 'sleep 10' to give qBittorrent time to initialize its Web UI
-      - VPN_PORT_FORWARDING_UP_COMMAND=/bin/sh -c 'sleep 15; wget -O- --retry-connrefused --post-data "json={\"listen_port\":{{PORTS}},\"current_network_interface\":\"tun0\"}" http://127.0.0.1:8080/api/v2/app/setPreferences 2>&1'
+      - VPN_PORT_FORWARDING_UP_COMMAND=/bin/sh -c 'sleep 25; wget -O- --retry-connrefused --post-data "json={\"listen_port\":{{PORTS}},\"current_network_interface\":\"tun0\"}" http://127.0.0.1:8080/api/v2/app/setPreferences 2>&1'
       - VPN_PORT_FORWARDING_DOWN_COMMAND=/bin/sh -c 'wget -O- --retry-connrefused --post-data "json={\"listen_port\":0,\"current_network_interface\":\"lo\"}" http://127.0.0.1:8080/api/v2/app/setPreferences 2>&1'
     
     ports:

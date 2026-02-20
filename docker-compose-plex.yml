@@ -89,20 +89,20 @@ services:
     networks:
       - media_network
 
-  kometa:
-    image: kometateam/kometa:latest
-    container_name: kometa
-    restart: unless-stopped
-    volumes:
-      - /var/lib/homelab-media-configs/kometa:/config
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
-      - KOMETA_RUN=${KOMETA_RUN:-false}
-      - KOMETA_TIME=${KOMETA_TIME:-05:00}
-    networks:
-      - media_network
+#  kometa:
+#    image: kometateam/kometa:latest
+#    container_name: kometa
+#    restart: unless-stopped
+#    volumes:
+#      - /var/lib/homelab-media-configs/kometa:/config
+#    environment:
+#      - PUID=${PUID}
+#      - PGID=${PGID}
+#      - TZ=${TZ}
+#      - KOMETA_RUN=${KOMETA_RUN:-false}
+#      - KOMETA_TIME=${KOMETA_TIME:-05:00}
+#    networks:
+#      - media_network
 
   plex-trakt-sync:
     image: ghcr.io/taxel/plextraktsync:latest

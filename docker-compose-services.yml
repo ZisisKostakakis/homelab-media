@@ -3,23 +3,24 @@
 # These services don't need VPN and can run independently
 
 services:
-  overseerr:
-    image: lscr.io/linuxserver/overseerr
-    container_name: overseerr
+  seerr:
+    image: ghcr.io/seerr-team/seerr:latest
+    init: true
+    container_name: seerr
     environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
+      - LOG_LEVEL=debug
       - TZ=${TZ}
+      - PORT=5055 #optional
     ports:
       - 5055:5055
     volumes:
-      - /var/lib/homelab-media-configs/overseerr:/config
+      - /var/lib/homelab-media-configs/overseerr:/app/config
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5055/api/v1/status"]
-      interval: 30s
-      timeout: 10s
+      test: wget --no-verbose --tries=1 --spider http://127.0.0.1:5055/api/v1/status || exit 1
+      start_period: 20s
+      timeout: 3s
+      interval: 15s
       retries: 3
-      start_period: 1m
     networks:
       - media_network
     restart: unless-stopped

@@ -25,7 +25,7 @@ RADARR_URL = "http://localhost:7878"
 RADARR_API_KEY = os.environ["RADARR_API_KEY"]
 
 SONARR_URL = "http://localhost:8989"
-SONARR_API_KEY = "REDACTED"
+SONARR_API_KEY = os.environ["SONARR_API_KEY"]
 
 QBITTORRENT_URL = "http://localhost:8080"
 QBITTORRENT_USERNAME = "admin"

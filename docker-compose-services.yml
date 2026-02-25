@@ -187,6 +187,23 @@ services:
     networks:
       - media_network
 
+
+  picard:
+    image: jlesage/musicbrainz-picard:latest
+    container_name: picard
+    restart: unless-stopped
+    environment:
+      - USER_ID=${PUID}
+      - GROUP_ID=${PGID}
+      - TZ=${TZ}
+    ports:
+      - 5800:5800
+    volumes:
+      - /var/lib/homelab-media-configs/picard:/config
+      - /mnt/media:/storage
+    networks:
+      - media_network
+
 volumes:
   portainer_data:
     name: portainer_data

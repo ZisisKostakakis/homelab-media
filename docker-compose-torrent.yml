@@ -46,6 +46,7 @@ services:
       - 6767:6767
       - 8191:8191
       - 2468:2468
+      - 8686:8686
     volumes:
       - /var/lib/homelab-media-configs/gluetun:/gluetun
     networks:
@@ -172,6 +173,28 @@ services:
       start_period: 1m
     restart: unless-stopped
 
+  lidarr:
+    image: lscr.io/linuxserver/lidarr:latest
+    container_name: lidarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - /var/lib/homelab-media-configs/lidarr:/config
+      - /mnt/media:/data
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8686/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+    restart: unless-stopped
+
   flaresolverr:
     image: flaresolverr/flaresolverr:latest
     container_name: flaresolverr
@@ -210,6 +233,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+
   recyclarr:
     image: recyclarr/recyclarr
     container_name: recyclarr
@@ -234,32 +258,32 @@ services:
       start_period: 5m
     restart: unless-stopped
 
-  cross-seed:
-    image: crossseed/cross-seed:latest
-    container_name: cross-seed
-    command: daemon
-    user: 1000:1000
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
-    volumes:
-      - /var/lib/homelab-media-configs/cross-seed:/config
-      - /mnt/media:/data
-      - /var/lib/homelab-media-configs/qbittorrent/qBittorrent/BT_backup:/torrents:ro
-    network_mode: "service:gluetun"
-    depends_on:
-      gluetun:
-        condition: service_healthy
-      qbittorrent:
-        condition: service_started
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:2468/api/webhook || exit 0"]
-      interval: 5m
-      timeout: 30s
-      retries: 1
-      start_period: 5m
-    restart: unless-stopped
+#  cross-seed:
+#    image: crossseed/cross-seed:latest
+#    container_name: cross-seed
+#    command: daemon
+#    user: 1000:1000
+#    environment:
+#      - PUID=${PUID}
+#      - PGID=${PGID}
+#      - TZ=${TZ}
+#    volumes:
+#      - /var/lib/homelab-media-configs/cross-seed:/config
+#      - /mnt/media:/data
+#      - /var/lib/homelab-media-configs/qbittorrent/qBittorrent/BT_backup:/torrents:ro
+#    network_mode: "service:gluetun"
+#    depends_on:
+#      gluetun:
+#        condition: service_healthy
+#      qbittorrent:
+#        condition: service_started
+#    healthcheck:
+#      test: ["CMD-SHELL", "curl -f http://localhost:2468/api/webhook || exit 0"]
+#      interval: 5m
+#      timeout: 30s
+#      retries: 1
+#      start_period: 5m
+#    restart: unless-stopped
 
 networks:
   media_network:

@@ -125,7 +125,7 @@ get_container_start_time() {
 
 verify_all_healthy() {
     local unhealthy_services=""
-    local services="gluetun qbittorrent sonarr radarr prowlarr bazarr flaresolverr"
+    local services="gluetun qbittorrent sonarr radarr prowlarr bazarr flaresolverr lidarr"
 
     log_event "INFO" "Verifying all services are healthy..."
 
@@ -165,7 +165,7 @@ cascade_restart_torrent_stack() {
     log_event "INFO" "=== Starting cascade restart of torrent stack ==="
 
     # List of VPN-dependent services to restart
-    local services="qbittorrent sonarr radarr prowlarr bazarr flaresolverr unpackerr recyclarr cross-seed"
+    local services="qbittorrent sonarr radarr prowlarr bazarr flaresolverr lidarr unpackerr recyclarr"
 
     # Stop and remove all VPN-dependent services
     log_event "INFO" "Stopping and removing VPN-dependent services..."
@@ -188,7 +188,7 @@ cascade_restart_torrent_stack() {
         -v /root/Github/homelab-media:/workdir \
         -w /workdir \
         docker/compose:1.29.2 \
-        -p homelab-torrent -f docker-compose-torrent.yml up -d --no-deps qbittorrent sonarr radarr prowlarr bazarr flaresolverr unpackerr recyclarr cross-seed 2>&1 | grep -vE "(Pulling|Downloaded|Network|Volume)" || true; then
+        -p homelab-torrent -f docker-compose-torrent.yml up -d --no-deps qbittorrent sonarr radarr prowlarr bazarr flaresolverr lidarr unpackerr recyclarr 2>&1 | grep -vE "(Pulling|Downloaded|Network|Volume)" || true; then
         log_event "INFO" "Services recreated successfully"
     else
         log_event "ERROR" "Failed to recreate services"
@@ -249,7 +249,7 @@ send_success_notification() {
 Torrent stack restarted in ${duration}s after Gluetun restart.
 All VPN-dependent services have rejoined the network namespace.
 
-Services: qbittorrent, sonarr, radarr, prowlarr, bazarr, flaresolverr, unpackerr, recyclarr, cross-seed"
+Services: qbittorrent, sonarr, radarr, prowlarr, bazarr, flaresolverr, lidarr, unpackerr, recyclarr"
 
     send_notification "Cascade Restart Success" "$msg" 3
 }

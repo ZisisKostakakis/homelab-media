@@ -15,7 +15,7 @@ show_usage() {
     echo ""
     echo "Stacks:"
     echo "  services  - User-facing services (Seerr, Maintainerr, WUD, etc.)"
-    echo "  torrent   - VPN and download automation (Gluetun, qBit, *arr)"
+    echo "  torrent   - VPN and download automation (Gluetun, qBit, *arr, Lidarr)"
     echo "  plex      - Media server (Plex, SuggestArr)"
     echo "  all       - All stacks"
     echo ""

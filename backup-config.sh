@@ -4,7 +4,8 @@
 # Backs up configuration files (API keys, indexers, connections) without media data
 
 # Configuration
-BACKUP_BASE_DIR="/home/blaze/Github/homelab-media/config-backups"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BACKUP_BASE_DIR="${BACKUP_BASE_DIR:-$SCRIPT_DIR/config-backups}"
 BACKUP_DATE=$(date +"%Y-%m-%d_%H-%M-%S")
 BACKUP_DIR="$BACKUP_BASE_DIR/$BACKUP_DATE"
 CONFIG_SOURCE="/mnt/media/config"

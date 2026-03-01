@@ -245,7 +245,7 @@ services:
       - SONARR_URL=http://localhost:8989
       - RADARR_URL=http://localhost:7878
     volumes:
-      - ./recyclarr:/config
+      - /mnt/media/config/recyclarr:/config
     network_mode: "service:gluetun"
     depends_on:
       gluetun:

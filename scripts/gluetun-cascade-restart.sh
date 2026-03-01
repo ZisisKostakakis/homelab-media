@@ -125,7 +125,7 @@ get_container_start_time() {
 
 verify_all_healthy() {
     local unhealthy_services=""
-    local services="gluetun qbittorrent sonarr radarr prowlarr bazarr flaresolverr lidarr"
+    local services="gluetun qbittorrent sonarr radarr prowlarr bazarr flaresolverr lidarr unpackerr recyclarr"
 
     log_event "INFO" "Verifying all services are healthy..."
 

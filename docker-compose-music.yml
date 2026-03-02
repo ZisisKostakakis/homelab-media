@@ -1,0 +1,144 @@
+# Music Stack
+# Navidrome music streaming + AudioMuse AI music analysis
+
+services:
+  navidrome:
+    image: deluan/navidrome:latest
+    container_name: navidrome
+    user: 1000:1000 # should be owner of volumes
+    ports:
+      - "4533:4533"
+    restart: unless-stopped
+    volumes:
+      - /var/lib/homelab-media-configs/navidrome:/data
+      - /mnt/media/music:/music:ro
+    networks:
+      - media_network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4533/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
+  audiomuse-redis:
+    image: redis:7-alpine
+    container_name: audiomuse-redis
+    restart: unless-stopped
+    volumes:
+      - /var/lib/homelab-media-configs/audiomuse-redis:/data
+    networks:
+      - media_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  audiomuse-postgres:
+    image: postgres:15-alpine
+    container_name: audiomuse-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${AUDIOMUSE_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${AUDIOMUSE_POSTGRES_PASSWORD}
+      - POSTGRES_DB=${AUDIOMUSE_POSTGRES_DB}
+      - TZ=${TZ}
+    volumes:
+      - /var/lib/homelab-media-configs/audiomuse-postgres:/var/lib/postgresql/data
+    networks:
+      - media_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  audiomuse-flask:
+    image: ghcr.io/neptunehub/audiomuse-ai:latest
+    container_name: audiomuse-flask
+    restart: unless-stopped
+    ports:
+      - "${AUDIOMUSE_PORT:-8000}:8000"
+    environment:
+      - TZ=${TZ}
+      - SERVICE_TYPE=flask
+      - MEDIASERVER_TYPE=navidrome
+      - NAVIDROME_URL=http://navidrome:4533
+      - NAVIDROME_USER=${AUDIOMUSE_NAVIDROME_USER}
+      - NAVIDROME_PASSWORD=${AUDIOMUSE_NAVIDROME_PASSWORD}
+      - AI_MODEL_PROVIDER=${AUDIOMUSE_AI_MODEL_PROVIDER}
+      - OPENAI_API_KEY=${AUDIOMUSE_OPENAI_API_KEY}
+      - OPENAI_SERVER_URL=${AUDIOMUSE_OPENAI_SERVER_URL}
+      - OPENAI_MODEL_NAME=${AUDIOMUSE_OPENAI_MODEL_NAME}
+      - GEMINI_API_KEY=${AUDIOMUSE_GEMINI_API_KEY}
+      - MISTRAL_API_KEY=${AUDIOMUSE_MISTRAL_API_KEY}
+      - CLAP_ENABLED=${AUDIOMUSE_CLAP_ENABLED:-false}
+      - POSTGRES_USER=${AUDIOMUSE_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${AUDIOMUSE_POSTGRES_PASSWORD}
+      - POSTGRES_DB=${AUDIOMUSE_POSTGRES_DB}
+      - POSTGRES_HOST=audiomuse-postgres
+      - POSTGRES_PORT=5432
+      - REDIS_URL=redis://audiomuse-redis:6379/0
+      - TEMP_DIR=/app/temp_audio
+    volumes:
+      - audiomuse_audio_tmp_flask:/app/temp_audio
+    depends_on:
+      audiomuse-postgres:
+        condition: service_healthy
+      audiomuse-redis:
+        condition: service_healthy
+      navidrome:
+        condition: service_healthy
+    networks:
+      - media_network
+
+  audiomuse-worker:
+    image: ghcr.io/neptunehub/audiomuse-ai:latest
+    container_name: audiomuse-worker
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+      - SERVICE_TYPE=worker
+      - MEDIASERVER_TYPE=navidrome
+      - NAVIDROME_URL=http://navidrome:4533
+      - NAVIDROME_USER=${AUDIOMUSE_NAVIDROME_USER}
+      - NAVIDROME_PASSWORD=${AUDIOMUSE_NAVIDROME_PASSWORD}
+      - AI_MODEL_PROVIDER=${AUDIOMUSE_AI_MODEL_PROVIDER}
+      - OPENAI_API_KEY=${AUDIOMUSE_OPENAI_API_KEY}
+      - OPENAI_SERVER_URL=${AUDIOMUSE_OPENAI_SERVER_URL}
+      - OPENAI_MODEL_NAME=${AUDIOMUSE_OPENAI_MODEL_NAME}
+      - GEMINI_API_KEY=${AUDIOMUSE_GEMINI_API_KEY}
+      - MISTRAL_API_KEY=${AUDIOMUSE_MISTRAL_API_KEY}
+      - CLAP_ENABLED=${AUDIOMUSE_CLAP_ENABLED:-false}
+      - POSTGRES_USER=${AUDIOMUSE_POSTGRES_USER}
+      - POSTGRES_PASSWORD=${AUDIOMUSE_POSTGRES_PASSWORD}
+      - POSTGRES_DB=${AUDIOMUSE_POSTGRES_DB}
+      - POSTGRES_HOST=audiomuse-postgres
+      - POSTGRES_PORT=5432
+      - REDIS_URL=redis://audiomuse-redis:6379/0
+      - TEMP_DIR=/app/temp_audio
+    volumes:
+      - audiomuse_audio_tmp_worker:/app/temp_audio
+    depends_on:
+      audiomuse-postgres:
+        condition: service_healthy
+      audiomuse-redis:
+        condition: service_healthy
+      navidrome:
+        condition: service_healthy
+    networks:
+      - media_network
+
+networks:
+  media_network:
+    external: true
+    name: homelab_media_network
+
+volumes:
+  audiomuse_audio_tmp_flask:
+    name: audiomuse_audio_tmp_flask
+  audiomuse_audio_tmp_worker:
+    name: audiomuse_audio_tmp_worker

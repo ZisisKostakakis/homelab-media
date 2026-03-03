@@ -8,7 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKUP_BASE_DIR="${BACKUP_BASE_DIR:-$SCRIPT_DIR/config-backups}"
 BACKUP_DATE=$(date +"%Y-%m-%d_%H-%M-%S")
 BACKUP_DIR="$BACKUP_BASE_DIR/$BACKUP_DATE"
-CONFIG_SOURCE="/mnt/media/config"
+CONFIG_SOURCE="${CONFIG_SOURCE:-/var/lib/homelab-media-configs}"
 
 # Colors for output
 GREEN='\033[0;32m'

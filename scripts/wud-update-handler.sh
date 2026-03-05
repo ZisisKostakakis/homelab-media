@@ -80,6 +80,23 @@ get_stack_and_service() {
             echo "plex suggestarr"
             ;;
 
+        # Music stack
+        navidrome)
+            echo "music navidrome"
+            ;;
+        audiomuse-flask)
+            echo "music audiomuse-flask"
+            ;;
+        audiomuse-worker)
+            echo "music audiomuse-worker"
+            ;;
+        audiomuse-redis)
+            echo "music audiomuse-redis"
+            ;;
+        audiomuse-postgres)
+            echo "music audiomuse-postgres"
+            ;;
+
         *)
             log "ERROR: Unknown container name: $container_name"
             return 1

@@ -116,7 +116,8 @@ services:
     ports:
       - 3000:3000
     environment:
-      # Authentication - Set username and password for WUD UI
+      # Authentication - generate hash: htpasswd -nbB admin <password> | sed 's/admin://'
+      # Set WUD_AUTH_BASIC_ADMIN_HASH in .env
       - WUD_AUTH_BASIC_ADMIN_USER=admin
       - WUD_AUTH_BASIC_ADMIN_HASH=${WUD_AUTH_BASIC_ADMIN_HASH}
       # Update check schedule (daily at 6 AM)

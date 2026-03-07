@@ -40,12 +40,23 @@ graph TB
             SEERR["Seerr\n:5055"]
             MAINTAINERR["Maintainerr\n:6246"]
             FILEBROWSER["Filebrowser\n:8181"]
+            PICARD["Picard\n:5800"]
             AUTOHEAL["Autoheal\n(watchdog)"]
             GLUETUN_MON["gluetun-monitor\n(cascade restarter)"]
             WUD["What's Up Docker\n:3000"]
             WUD_WEBHOOK["wud-webhook\n:8182"]
             PORTAINER["Portainer\n:9443"]
             BESZEL["Beszel\n:8090"]
+        end
+
+        subgraph MUSIC_STACK["🎵 Music Stack  (homelab-music)"]
+            NAVIDROME["Navidrome\n:4533"]
+            AM_FLASK["AudioMuse flask\n:8000"]
+            AM_WORKER["AudioMuse worker"]
+            AM_REDIS["Redis\n(task queue)"]
+            AM_PG["Postgres\n(database)"]
+            AM_FLASK & AM_WORKER -->|"reads library"| NAVIDROME
+            AM_REDIS & AM_PG --- AM_FLASK & AM_WORKER
         end
 
         subgraph SHARED_NET["🌐 homelab_media_network (bridge)"]
@@ -96,12 +107,14 @@ graph TB
     %% Storage
     QB & SONARR & RADARR & BAZARR & UNPACKERR --> MEDIA
     PLEX --> MEDIA
+    NAVIDROME -->|"reads music\n(read-only)"| MEDIA
     SERVICES_STACK -.-> CONFIGS
 
     %% Network membership
     TORRENT_STACK -.-> SHARED_NET
     PLEX_STACK -.-> SHARED_NET
     SERVICES_STACK -.-> SHARED_NET
+    MUSIC_STACK -.-> SHARED_NET
 ```
 
 ---
@@ -281,6 +294,9 @@ graph LR
         PORT["Portainer\n:9443"]
         BSZ["Beszel\n:8090"]
         PLEX2["Plex stack services\n(Suggestarr, Kitana,\nTautulli)"]
+        NAV2["Navidrome\n:4533"]
+        AMF["AudioMuse flask\n:8000"]
+        AMW["AudioMuse worker"]
     end
 
     subgraph EXTERNAL["☁️ External"]

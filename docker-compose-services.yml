@@ -123,6 +123,7 @@ services:
       # Update check schedule (daily at 6 AM)
       - WUD_WATCHER_LOCAL_CRON=0 6 * * *
       # Ntfy Trigger - Send notifications when container updates are available
+      # Set WUD_NTFY_TOPIC in .env to your ntfy.sh topic name
       - WUD_TRIGGER_NTFY_HOMELAB_URL=https://ntfy.sh
       - WUD_TRIGGER_NTFY_HOMELAB_TOPIC=${WUD_NTFY_TOPIC}
       - WUD_TRIGGER_NTFY_HOMELAB_PRIORITY=3  # 1=min, 3=default, 5=max

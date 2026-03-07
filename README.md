@@ -1,11 +1,11 @@
 # Homelab Media Stack
 
-![Stacks](https://img.shields.io/badge/stacks-3-blue)
-![Services](https://img.shields.io/badge/services-20%2B-green)
+![Stacks](https://img.shields.io/badge/stacks-4-blue)
+![Services](https://img.shields.io/badge/services-25%2B-green)
 ![VPN](https://img.shields.io/badge/VPN-ProtonVPN%20WireGuard-purple)
 ![License](https://img.shields.io/badge/license-personal-lightgrey)
 
-A fully automated, self-healing homelab media stack built on Docker Compose. Handles everything from media requests to downloading, extracting, renaming, subtitle fetching, quality management, and streaming — with zero manual intervention after initial setup.
+A fully automated, self-healing homelab media stack built on Docker Compose. Handles everything from media requests to downloading, extracting, renaming, subtitle fetching, quality management, streaming, and music — with zero manual intervention after initial setup.
 
 All download traffic routes through a WireGuard VPN with a firewall kill switch. A custom cascade-restart monitor automatically recovers all dependent services when the VPN restarts. Container image updates are detected daily and applied automatically with push notifications at each step.
 
@@ -29,7 +29,7 @@ All download traffic routes through a WireGuard VPN with a firewall kill switch.
 
 ## Architecture
 
-The stack is split into three independent Docker Compose projects that share a common bridge network (`homelab_media_network`). This allows each stack to be updated, restarted, or debugged independently without affecting the others.
+The stack is split into four independent Docker Compose projects that share a common bridge network (`homelab_media_network`). This allows each stack to be updated, restarted, or debugged independently without affecting the others.
 
 ```mermaid
 graph TB
@@ -46,14 +46,23 @@ graph TB
     end
 
     subgraph SERVICES["⚙️ Services Stack"]
-        SR["Seerr · Maintainerr\nFilebrowser"]
+        SR["Seerr · Maintainerr\nFilebrowser · Picard"]
         SH["Autoheal · gluetun-monitor\nWUD · wud-webhook"]
         OPS["Portainer · Beszel"]
+    end
+
+    subgraph MUSIC["🎵 Music Stack"]
+        NAV["Navidrome"]
+        AM["AudioMuse (flask + worker)"]
+        DB["Redis · Postgres"]
+        NAV --- AM
+        DB --- AM
     end
 
     SR -->|"requests"| ARR
     PX -->|"library"| QB
     SH -->|"monitors + heals"| TORRENT
+    AM -->|"AI analysis"| NAV
 ```
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for all five detailed diagrams including sequence diagrams for the request pipeline, VPN auto-healing, and the container update flow.
@@ -96,12 +105,23 @@ All services in this stack run inside the Gluetun VPN network namespace. They co
 | **Seerr** | `seerr-team/seerr` | 5055 | User-facing media request interface |
 | **Maintainerr** | `maintainerr/maintainerr` | 6246 | Automated media cleanup rules |
 | **Filebrowser** | `filebrowser/filebrowser` | 8181 | Web-based file manager for `/mnt/media` |
+| **Picard** | `jlesage/musicbrainz-picard` | 5800 | MusicBrainz Picard music tagger (web UI) |
 | **Autoheal** | `willfarrell/autoheal` | — | Restarts any container failing its healthcheck |
 | **gluetun-monitor** | `alpine` (custom script) | — | Cascade restarts torrent stack when Gluetun restarts |
 | **What's Up Docker** | `getwud/wud` | 3000 | Detects container image updates daily |
 | **wud-webhook** | `python:3.11-alpine` (custom) | 8182 | HTTP webhook receiver that applies WUD updates |
-| **Portainer** | `portainer/portainer-ce` | 9443, 8000 | Docker management UI |
+| **Portainer** | `portainer/portainer-ce` | 9443 | Docker management UI |
 | **Beszel** | `henrygd/beszel` | 8090 | System monitoring dashboard |
+
+### Music Stack (`docker-compose-music.yml`)
+
+| Service | Image | Port | Role |
+|---------|-------|------|------|
+| **Navidrome** | `deluan/navidrome` | 4533 | Self-hosted music streaming server |
+| **AudioMuse (flask)** | `neptunehub/audiomuse-ai` | 8000 | AI music analysis web API |
+| **AudioMuse (worker)** | `neptunehub/audiomuse-ai` | — | Background AI analysis worker |
+| **audiomuse-redis** | `redis:7-alpine` | — | Task queue for AudioMuse workers |
+| **audiomuse-postgres** | `postgres:15-alpine` | — | Persistent database for AudioMuse |
 
 ---
 
@@ -250,6 +270,10 @@ cross-seed → qBit:   http://localhost:8080
 ├── movies/                 # Final movie library (Plex source)
 │   └── Movie Name (Year)/
 │       └── Movie.mkv
+├── music/                  # Music library (Navidrome source, read-only mount)
+│   └── Artist/
+│       └── Album/
+│           └── Track.flac
 └── transcode/              # Plex temporary transcode buffer
 ```
 
@@ -280,7 +304,10 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 ├── tautulli/           # Play history database
 ├── cross-seed/         # Matching config
 ├── gluetun-monitor/    # Restart log + config overrides
-└── wud-updates/        # Update handler logs
+├── wud-updates/        # Update handler logs
+├── navidrome/          # Navidrome database and config
+├── audiomuse-postgres/ # AudioMuse PostgreSQL data
+└── audiomuse-redis/    # AudioMuse Redis data
 ```
 
 ---
@@ -292,6 +319,7 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 | Seerr | `:5055` | services | bridge | Media request UI |
 | Maintainerr | `:6246` | services | bridge | Media cleanup rules |
 | Filebrowser | `:8181` | services | bridge | Web file manager |
+| Picard | `:5800` | services | bridge | Music tagger web UI |
 | What's Up Docker | `:3000` | services | bridge | Update monitor UI |
 | wud-webhook | `:8182` | services | bridge | Auto-update webhook |
 | Portainer | `:9443` | services | host | Docker management |
@@ -307,6 +335,8 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 | SuggestArr | `:5000` | plex | bridge | Recommendations |
 | Kitana | `:31337` | plex | bridge | Plugin manager |
 | Tautulli | `:8787` | plex | bridge | Play stats |
+| Navidrome | `:4533` | music | bridge | Music streaming |
+| AudioMuse | `:8000` | music | bridge | AI music analysis UI |
 
 ---
 
@@ -371,6 +401,9 @@ Start services in this order to avoid dependency failures:
 
 # 3. Start the Plex stack
 ./stack-manage.sh plex start
+
+# 4. Start the music stack
+./stack-manage.sh music start
 ```
 
 ### First-Time Configuration Order
@@ -396,7 +429,7 @@ The primary operations tool. Wraps `docker compose` commands for each stack:
 ```bash
 ./stack-manage.sh <stack> <action> [service]
 
-# Stacks: services | torrent | plex | all
+# Stacks: services | torrent | plex | music | all
 # Actions: start | stop | restart | down | pull | update | logs | status
 ```
 

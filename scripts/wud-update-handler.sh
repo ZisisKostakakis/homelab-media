@@ -8,6 +8,10 @@ set -e
 LOG_DIR="/var/lib/homelab-media-configs/wud-updates"
 LOG_FILE="$LOG_DIR/update-handler.log"
 
+# Notification configuration (override via environment)
+NTFY_URL="${NTFY_URL:-https://ntfy.sh}"
+NTFY_TOPIC="${NTFY_TOPIC:-homelab-wud-docker-updates}"
+
 # Create log directory if it doesn't exist
 mkdir -p "$LOG_DIR"
 
@@ -145,7 +149,7 @@ update_service() {
              -H "Priority: 3" \
              -H "Tags: white_check_mark,docker" \
              -d "Successfully updated $container_name from $image to $new_version" \
-             https://ntfy.sh/${WUD_NTFY_TOPIC} 2>/dev/null || true
+             "${NTFY_URL}/${NTFY_TOPIC}" 2>/dev/null || true
 
         return 0
     else
@@ -156,7 +160,7 @@ update_service() {
              -H "Priority: 4" \
              -H "Tags: x,warning" \
              -d "Failed to update $container_name. Check logs at $LOG_FILE" \
-             https://ntfy.sh/${WUD_NTFY_TOPIC} 2>/dev/null || true
+             "${NTFY_URL}/${NTFY_TOPIC}" 2>/dev/null || true
 
         return 1
     fi

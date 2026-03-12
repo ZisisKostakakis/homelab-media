@@ -132,6 +132,22 @@ Restore instructions:
 4. Start containers: docker compose up -d
 EOF
 
+verify_backup() {
+    if [ ! -d "$BACKUP_DIR" ]; then
+        echo -e "${RED}Verification FAILED: backup directory not found.${NC}"
+        return 1
+    fi
+    local subdir_count
+    subdir_count=$(find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d | wc -l)
+    if [ "$subdir_count" -lt 1 ]; then
+        echo -e "${RED}Verification FAILED: backup directory contains no subdirectories.${NC}"
+        return 1
+    fi
+    echo -e "${GREEN}Verification PASSED: backup contains $subdir_count service director$([ "$subdir_count" -eq 1 ] && echo 'y' || echo 'ies').${NC}"
+}
+
+verify_backup
+
 # Calculate backup size
 BACKUP_SIZE=$(du -sh "$BACKUP_DIR" | cut -f1)
 

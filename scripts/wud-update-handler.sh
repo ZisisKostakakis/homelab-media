@@ -69,6 +69,9 @@ get_stack_and_service() {
         flaresolverr)
             echo "torrent flaresolverr"
             ;;
+        lidarr)
+            echo "torrent lidarr"
+            ;;
         unpackerr)
             echo "torrent unpackerr"
             ;;
@@ -79,6 +82,9 @@ get_stack_and_service() {
         # Plex stack
         plex)
             echo "plex plex"
+            ;;
+        plex-trakt-sync)
+            echo "plex plex-trakt-sync"
             ;;
         suggestarr)
             echo "plex suggestarr"

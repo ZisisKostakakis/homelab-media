@@ -46,6 +46,15 @@ get_stack_and_service() {
         portainer)
             echo "services portainer"
             ;;
+        picard)
+            echo "services picard"
+            ;;
+        beszel)
+            echo "services beszel"
+            ;;
+        wud-webhook)
+            echo "services wud-webhook"
+            ;;
 
         # Torrent stack
         gluetun)
@@ -86,8 +95,14 @@ get_stack_and_service() {
         plex-trakt-sync)
             echo "plex plex-trakt-sync"
             ;;
-        suggestarr)
+        SuggestArr|suggestarr)
             echo "plex suggestarr"
+            ;;
+        kitana)
+            echo "plex kitana"
+            ;;
+        tautulli)
+            echo "plex tautulli"
             ;;
 
         # Music stack

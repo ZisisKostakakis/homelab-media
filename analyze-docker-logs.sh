@@ -14,6 +14,7 @@ declare -A COMPOSE_PROJECTS=(
     ["homelab-torrent"]="docker-compose-torrent.yml"
     ["homelab-plex"]="docker-compose-plex.yml"
     ["homelab-services"]="docker-compose-services.yml"
+    ["homelab-music"]="docker-compose-music.yml"
 )
 
 # Parse arguments

@@ -29,6 +29,7 @@ show_usage() {
     echo "  update    - Pull images and recreate containers"
     echo "  logs      - Show logs (last 50 lines)"
     echo "  status    - Show container status"
+  echo "  health    - Show running homelab container health summary"
     echo ""
     echo "Service (optional):"
     echo "  Specify a service name to manage individual services within a stack"
@@ -92,6 +93,10 @@ manage_stack() {
             ;;
         status)
             docker compose -p "$project_name" -f "$compose_file" ps $service
+            ;;
+        health)
+            echo "=== Container health for $project_name ==="
+            docker ps --format "table {{.Names}}\t{{.Status}}" | grep "homelab-" || echo "(no homelab containers running)"
             ;;
         *)
             echo "Error: Unknown action '$action'"

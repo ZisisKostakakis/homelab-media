@@ -232,6 +232,12 @@ services:
       gluetun:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -fa unpackerr || exit 1"]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 
   recyclarr:

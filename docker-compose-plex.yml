@@ -76,10 +76,14 @@ services:
       - "${TAUTULLI_PORT:-8787}:8181"
     volumes:
       - /var/lib/homelab-media-configs/tautulli:/config
+      - ./scripts:/scripts:ro
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+      - QBITTORRENT_URL=http://gluetun:8080
+      - QBITTORRENT_USERNAME=${QBITTORRENT_USERNAME:-admin}
+      - QBITTORRENT_PASSWORD=${QBITTORRENT_PASSWORD}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8181/status"]
       interval: 1m

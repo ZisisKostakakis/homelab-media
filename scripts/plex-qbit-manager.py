@@ -12,14 +12,11 @@ import logging
 import os
 import sys
 import requests
-from dotenv import load_dotenv
-
-load_dotenv()
 
 QBITTORRENT_URL      = os.getenv("QBITTORRENT_URL", "http://localhost:8080")
 QBITTORRENT_USERNAME = os.getenv("QBITTORRENT_USERNAME", "admin")
 QBITTORRENT_PASSWORD = os.getenv("QBITTORRENT_PASSWORD", "")
-LOG_FILE             = os.getenv("PLEX_QBIT_LOG", "/var/lib/homelab-media-configs/plex-qbit-manager.log")
+LOG_FILE             = os.getenv("PLEX_QBIT_LOG", "/config/logs/plex-qbit-manager.log")
 
 logging.basicConfig(
     level=logging.INFO,

@@ -1,5 +1,8 @@
 #!/bin/bash
-# Cron setup - creates shared log dir
+# Cron Environment Setup
+# Installs crontab preamble and creates log directory.
+
+set -e
 
 LOG_DIR="/var/log/homelab"
 
@@ -10,4 +13,13 @@ else
     echo "Already exists: $LOG_DIR"
 fi
 
-echo "Done."
+PREAMBLE="SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+MAILTO=\"\""
+
+CURRENT_CRON=$(crontab -l 2>/dev/null || true)
+printf '%s\n\n%s\n' "$PREAMBLE" "$CURRENT_CRON" | crontab -
+
+echo "Crontab preamble installed."
+echo "---"
+crontab -l

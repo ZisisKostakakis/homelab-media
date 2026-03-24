@@ -1,7 +1,7 @@
 # Homelab Media Stack
 
 ![Stacks](https://img.shields.io/badge/stacks-4-blue)
-![Services](https://img.shields.io/badge/services-25%2B-green)
+![Services](https://img.shields.io/badge/services-30%2B-green)
 ![VPN](https://img.shields.io/badge/VPN-ProtonVPN%20WireGuard-purple)
 ![License](https://img.shields.io/badge/license-personal-lightgrey)
 
@@ -81,6 +81,7 @@ All services in this stack run inside the Gluetun VPN network namespace. They co
 | **qBittorrent** | `linuxserver/qbittorrent` | 8080 | Torrent client |
 | **Sonarr** | `homelab-sonarr` (custom) | 8989 | TV show PVR automation |
 | **Radarr** | `linuxserver/radarr` | 7878 | Movie PVR automation |
+| **Lidarr** | `linuxserver/lidarr` | 8686 | Music/artist PVR automation |
 | **Prowlarr** | `linuxserver/prowlarr` | 9696 | Centralized indexer manager |
 | **Bazarr** | `linuxserver/bazarr` | 6767 | Automated subtitle downloader |
 | **FlareSolverr** | `flaresolverr/flaresolverr` | 8191 | Cloudflare CAPTCHA bypass proxy |

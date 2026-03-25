@@ -7,7 +7,7 @@
 
 A fully automated, self-healing homelab media stack built on Docker Compose. Handles everything from media requests to downloading, extracting, renaming, subtitle fetching, quality management, streaming, and music — with zero manual intervention after initial setup.
 
-All download traffic routes through a WireGuard VPN with a firewall kill switch. A custom cascade-restart monitor automatically recovers all dependent services when the VPN restarts. Container image updates are detected daily and applied automatically with push notifications at each step.
+All download traffic routes through a WireGuard VPN with a firewall kill switch. A custom cascade-restart monitor automatically recovers all dependent services when the VPN restarts. Container image updates are detected daily and applied automatically with push notifications at each step. Plex playback automatically pauses all torrents to prioritise streaming bandwidth.
 
 ---
 
@@ -161,6 +161,12 @@ See the [Container Auto-Update diagram](./ARCHITECTURE.md#4-container-auto-updat
 ### 7. Media Cleanup Pipeline (Maintainerr)
 
 Maintainerr applies configurable rules to remove media from Plex (and optionally from Seerr and the filesystem) based on criteria like: not watched in N days, added more than N months ago, or below a watch count threshold. This keeps the library from growing indefinitely without manual curation.
+
+### 8. Plex Playback → Bandwidth Management (plex-qbit-manager)
+
+`scripts/plex-qbit-manager.py` is called by Tautulli on every Plex playback event. When any stream starts, it pauses all active qBittorrent torrents. When all streams end, it resumes them. A file-based counter with locking ensures multiple concurrent streams are tracked correctly — torrents remain paused until the last stream stops.
+
+Tautulli mounts the scripts directory read-only and injects qBittorrent credentials as environment variables, so no credentials are hardcoded in the script.
 
 ---
 
@@ -526,4 +532,5 @@ docker logs -f wud-webhook
 - **API keys** are passed via environment variables from `.env`. They are not embedded in the compose files.
 - **Docker socket access** is granted to Autoheal, gluetun-monitor, wud-webhook, and Portainer. These are mounted read-only where possible (`gluetun-monitor` mounts `:ro`). Be aware that Docker socket access is effectively root on the host.
 - **WUD credentials** — the WUD web UI is protected with HTTP Basic Auth (configured in the compose file). Change the default credentials before exposing the port externally.
+- **Tautulli scripts** — the scripts directory is mounted read-only into Tautulli. Credentials are injected via environment variables, not hardcoded.
 - **Rotation** — if this repo is ever made public, rotate all API keys and the WireGuard private key immediately.

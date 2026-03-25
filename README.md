@@ -36,7 +36,7 @@ graph TB
     subgraph TORRENT["📦 Torrent Stack"]
         GL["Gluetun (VPN)"]
         QB["qBittorrent"]
-        ARR["Sonarr · Radarr · Bazarr\nProwlarr · FlareSolverr\nUnpackerr · Recyclarr · cross-seed"]
+        ARR["Sonarr · Radarr · Lidarr · Bazarr\nProwlarr · FlareSolverr\nUnpackerr · Recyclarr · cross-seed"]
         GL --- QB & ARR
     end
 
@@ -196,7 +196,7 @@ This is the most critical self-healing layer. Gluetun creates a new network name
 2. Confirming a real restart by comparing network namespace SandboxKeys (not just health status changes)
 3. Applying debounce (30s cooldown) and rate limiting (5 restarts/hour max)
 4. Waiting up to 300s for Gluetun to become healthy
-5. Stopping and removing all 9 VPN-dependent services
+5. Stopping and removing all VPN-dependent services (qBittorrent, Sonarr, Radarr, Lidarr, Prowlarr, Bazarr, FlareSolverr, Unpackerr, Recyclarr, cross-seed)
 6. Recreating them all via `docker compose up -d` (with up to 3 retries with exponential backoff)
 7. Sending ntfy.sh notifications at each stage
 
@@ -212,7 +212,7 @@ This is the most critical self-healing layer. Gluetun creates a new network name
 │  (network_mode: service:gluetun)             │
 │  All traffic exits via WireGuard tun0        │
 │  Public IP = Proton VPN London server        │
-│  qBit · Sonarr · Radarr · Prowlarr · etc.   │
+│  qBit · Sonarr · Radarr · Lidarr · etc.     │
 └─────────────────────────────────────────────┘
          │ ports exposed through Gluetun
          ▼
@@ -298,6 +298,7 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 ├── qbittorrent/        # Settings + torrent metadata (BT_backup/)
 ├── sonarr/             # Database, config.xml
 ├── radarr/             # Database, config.xml
+├── lidarr/             # Database, config.xml
 ├── prowlarr/           # Database, indexer configs
 ├── bazarr/             # Database, subtitle configs
 ├── overseerr/          # Settings + user database
@@ -328,6 +329,7 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 | qBittorrent | `:8080` | torrent | VPN | Torrent client |
 | Sonarr | `:8989` | torrent | VPN | TV automation |
 | Radarr | `:7878` | torrent | VPN | Movie automation |
+| Lidarr | `:8686` | torrent | VPN | Music automation |
 | Prowlarr | `:9696` | torrent | VPN | Indexer manager |
 | Bazarr | `:6767` | torrent | VPN | Subtitle downloader |
 | FlareSolverr | `:8191` | torrent | VPN | CF bypass |

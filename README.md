@@ -96,7 +96,7 @@ All services in this stack run inside the Gluetun VPN network namespace. They co
 | **Plex** | `linuxserver/plex` | 32400 (host) | Media server with hardware transcoding |
 | **SuggestArr** | `ciuse99/suggestarr` | 5000 | AI-powered media recommendations → Seerr |
 | **Kitana** | `pannal/kitana` | 31337 | Plex plugin manager web UI |
-| **Tautulli** | `linuxserver/tautulli` | 8787 | Plex play history and statistics |
+| **Tautulli** | `linuxserver/tautulli` | 8787 | Plex play history, statistics, and automation scripts |
 | **plex-trakt-sync** | `taxel/plextraktsync` | host | Sync watched status to Trakt.tv (manual profile) |
 
 ### Services Stack (`docker-compose-services.yml`)
@@ -130,7 +130,7 @@ All services in this stack run inside the Gluetun VPN network namespace. They co
 
 ### 1. Media Request Pipeline
 
-User submits a request in Seerr → Seerr forwards to Sonarr/Radarr via API → *arr searches all indexers via Prowlarr (with FlareSolverr for Cloudflare-protected indexers) → best torrent is grabbed based on quality profile scoring → qBittorrent downloads over VPN → on completion, Unpackerr extracts any RAR archives → *arr renames and hardlinks the file to the library → Bazarr fetches subtitles → Plex library refreshes → media appears in Plex.
+User submits a request in Seerr → Seerr forwards to Sonarr/Radarr/Lidarr via API → *arr searches all indexers via Prowlarr (with FlareSolverr for Cloudflare-protected indexers) → best torrent is grabbed based on quality profile scoring → qBittorrent downloads over VPN → on completion, Unpackerr extracts any RAR archives → *arr renames and hardlinks the file to the library → Bazarr fetches subtitles → Plex library refreshes → media appears in Plex.
 
 See the [Media Request Flow diagram](./ARCHITECTURE.md#2-media-request-flow) for the full sequence.
 
@@ -337,7 +337,7 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 | Plex | `:32400` | plex | host | Media server |
 | SuggestArr | `:5000` | plex | bridge | Recommendations |
 | Kitana | `:31337` | plex | bridge | Plugin manager |
-| Tautulli | `:8787` | plex | bridge | Play stats |
+| Tautulli | `:8787` | plex | bridge | Play stats + automation |
 | Navidrome | `:4533` | music | bridge | Music streaming |
 | AudioMuse | `:8000` | music | bridge | AI music analysis UI |
 
@@ -416,10 +416,11 @@ After all containers are running, configure in this order:
 1. **Prowlarr** (`:9696`) — Add indexers. Add FlareSolverr proxy (`http://localhost:8191`) and tag it on Cloudflare-protected indexers.
 2. **Sonarr** (`:8989`) — Add qBittorrent download client (`http://localhost:8080`). Connect Prowlarr.
 3. **Radarr** (`:7878`) — Same as Sonarr.
-4. **Bazarr** (`:6767`) — Connect Sonarr and Radarr. Add subtitle providers.
-5. **Recyclarr** — Edit `recyclarr/recyclarr.yml` with your Sonarr/Radarr API keys and run once: `./stack-manage.sh torrent restart recyclarr`
-6. **Seerr** (`:5055`) — Connect to Plex, then connect Sonarr and Radarr.
-7. **Maintainerr** (`:6246`) — Connect Plex and Seerr, then define cleanup rules.
+4. **Lidarr** (`:8686`) — Same as Sonarr/Radarr. For music downloads.
+5. **Bazarr** (`:6767`) — Connect Sonarr and Radarr. Add subtitle providers.
+6. **Recyclarr** — Edit `recyclarr/recyclarr.yml` with your Sonarr/Radarr API keys and run once: `./stack-manage.sh torrent restart recyclarr`
+7. **Seerr** (`:5055`) — Connect to Plex, then connect Sonarr and Radarr.
+8. **Maintainerr** (`:6246`) — Connect Plex and Seerr, then define cleanup rules.
 
 ---
 

@@ -184,7 +184,7 @@ Every service defines a `healthcheck` in its Compose configuration. Docker marks
 |---------|---------------------|
 | Gluetun | `/gluetun-entrypoint healthcheck` |
 | qBittorrent | `GET /api/v2/app/version` |
-| Sonarr / Radarr | `GET /ping` |
+| Sonarr / Radarr / Lidarr | `GET /ping` |
 | Prowlarr | `GET /ping` |
 | Bazarr | `GET /api/system/status` |
 | FlareSolverr | `GET /health` |
@@ -461,9 +461,8 @@ The primary operations tool. Wraps `docker compose` commands for each stack:
 ./stack-manage.sh all update
 
 # Check health status across all stacks
-./stack-manage.sh torrent status
-./stack-manage.sh services status
-./stack-manage.sh plex status
+./stack-manage.sh torrent health
+./stack-manage.sh services health
 
 # Bring down a stack completely
 ./stack-manage.sh torrent down
@@ -518,6 +517,9 @@ docker exec gluetun cat /tmp/gluetun/forwarded_port
 
 # View WUD update logs
 docker logs -f wud-webhook
+
+# Check active Plex stream count (plex-qbit-manager state)
+docker exec tautulli cat /config/logs/plex-qbit-sessions.count
 ```
 
 ---
@@ -536,6 +538,7 @@ docker logs -f wud-webhook
 | WUD not detecting updates | Image tagged as `latest` with digest pinning | Check WUD UI at `:3000` for watcher status. Some images (e.g. Filebrowser `s6` tag) are excluded via `wud.watch=false` label |
 | gluetun-monitor in restart loop | Gluetun instability | Monitor pauses for 1 hour after 5 restarts/hour. Check `docker logs gluetun-monitor` and ntfy for the loop detection alert |
 | Seerr not showing Plex content | Plex not connected | Re-authenticate Plex in Seerr settings. Plex token may have expired |
+| Torrents not resuming after Plex stops | Stream counter mismatch | Check `/config/logs/plex-qbit-sessions.count` in the Tautulli container. Reset to `0` if stuck |
 
 ---
 

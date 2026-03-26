@@ -156,6 +156,8 @@ See the [VPN Auto-Healing diagram](./ARCHITECTURE.md#3-vpn-auto-healing-flow) fo
 
 What's Up Docker checks all container image tags daily at 06:00. When updates are found, it sends a batch push notification to ntfy.sh and triggers a webhook to the `wud-webhook` Python server for each updated container. The webhook server calls `wud-update-handler.sh`, which maps the container name to its stack, then runs `stack-manage.sh <stack> update <service>` to pull the new image and recreate the container. Success/failure notifications are sent via ntfy.sh.
 
+A daily cron job (`scripts/cron-jobs/update-all-stacks.sh`) also runs `stack-manage.sh all update` at 4:00 AM as a secondary update sweep.
+
 See the [Container Auto-Update diagram](./ARCHITECTURE.md#4-container-auto-update-flow) for the full sequence.
 
 ### 7. Media Cleanup Pipeline (Maintainerr)
@@ -440,7 +442,7 @@ The primary operations tool. Wraps `docker compose` commands for each stack:
 ./stack-manage.sh <stack> <action> [service]
 
 # Stacks: services | torrent | plex | music | all
-# Actions: start | stop | restart | down | pull | update | logs | status
+# Actions: start | stop | restart | down | pull | update | logs | status | health
 ```
 
 **Common operations:**
@@ -466,6 +468,18 @@ The primary operations tool. Wraps `docker compose` commands for each stack:
 # Bring down a stack completely
 ./stack-manage.sh torrent down
 ```
+
+### Cron Jobs
+
+```bash
+# Install the crontab environment preamble (run once on a new host)
+./cron-setup.sh
+
+# Register the daily stack update job (self-registers, safe to re-run)
+./scripts/cron-jobs/update-all-stacks.sh
+```
+
+The daily update job runs at 4:00 AM and calls `./stack-manage.sh all update`.
 
 ### backup-config.sh
 

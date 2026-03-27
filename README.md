@@ -392,6 +392,15 @@ PLEX_CLAIM=claim-xxxxxxxxxxxxxxxxxxxx
 GLUETUN_MONITOR_NTFY_TOPIC=your_ntfy_topic
 BESZEL_AGENT_KEY=your_beszel_ssh_public_key
 
+# AudioMuse AI Music Analysis
+AUDIOMUSE_NAVIDROME_USER=your_navidrome_username
+AUDIOMUSE_NAVIDROME_PASSWORD=your_navidrome_password
+AUDIOMUSE_AI_MODEL_PROVIDER=openai        # openai | gemini | mistral
+AUDIOMUSE_OPENAI_API_KEY=your_openai_key
+AUDIOMUSE_POSTGRES_USER=audiomuse
+AUDIOMUSE_POSTGRES_PASSWORD=your_db_password
+AUDIOMUSE_POSTGRES_DB=audiomuse
+
 # Optional port overrides
 SUGGESTARR_PORT=5000
 KITANA_PORT=31337
@@ -429,6 +438,7 @@ After all containers are running, configure in this order:
 6. **Recyclarr** — Edit `recyclarr/recyclarr.yml` with your Sonarr/Radarr API keys and run once: `./stack-manage.sh torrent restart recyclarr`
 7. **Seerr** (`:5055`) — Connect to Plex, then connect Sonarr and Radarr.
 8. **Maintainerr** (`:6246`) — Connect Plex and Seerr, then define cleanup rules.
+9. **Tautulli** (`:8787`) — Configure notification agent to call `/scripts/plex-qbit-manager.py` on playback start/stop events (pauses torrents during Plex streams).
 
 ---
 
@@ -493,7 +503,7 @@ Includes: all service configs, docker-compose files, `.env`. Excludes: media fil
 
 ### analyze-docker-logs.sh
 
-Scans logs across all three stacks for errors and warnings:
+Scans logs across all stacks for errors and warnings:
 
 ```bash
 ./analyze-docker-logs.sh --since 24h

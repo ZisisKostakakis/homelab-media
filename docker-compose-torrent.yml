@@ -47,6 +47,7 @@ services:
       - 8191:8191
       - 2468:2468
       - 8686:8686
+      - "${READARR_PORT:-8282}:8787"
     volumes:
       - /var/lib/homelab-media-configs/gluetun:/gluetun
     networks:

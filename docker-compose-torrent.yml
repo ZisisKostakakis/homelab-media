@@ -248,6 +248,8 @@ services:
       - UN_SONARR_0_API_KEY=${SONARR_API_KEY}
       - UN_RADARR_0_URL=http://localhost:7878
       - UN_RADARR_0_API_KEY=${RADARR_API_KEY}
+      - UN_READARR_0_URL=http://localhost:8787
+      - UN_READARR_0_API_KEY=${READARR_API_KEY}
     volumes:
       - /mnt/media:/data
     network_mode: "service:gluetun"

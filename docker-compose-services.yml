@@ -206,6 +206,20 @@ services:
     networks:
       - media_network
 
+  rreading-glasses-postgres:
+    image: postgres:17
+    container_name: rreading-glasses-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=rreading-glasses
+      - POSTGRES_PASSWORD=${RREADING_GLASSES_DB_PASSWORD}
+      - POSTGRES_DB=rreading-glasses
+      - TZ=${TZ}
+    volumes:
+      - /var/lib/homelab-media-configs/rreading-glasses-postgres:/var/lib/postgresql/data
+    networks:
+      - media_network
+
 volumes:
   portainer_data:
     name: portainer_data

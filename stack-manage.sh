@@ -119,13 +119,13 @@ if [ "$STACK" = "all" ]; then
         show_usage
         exit 1
     fi
-    for s in services torrent plex music; do
+    for s in services torrent plex music manga; do
         manage_stack "$s" "$ACTION" "$SERVICE" || echo "Warning: $s stack returned an error"
         echo ""
     done
 else
     case $STACK in
-        services|torrent|plex|music)
+        services|torrent|plex|music|manga)
             manage_stack "$STACK" "$ACTION" "$SERVICE"
             ;;
         *)

@@ -1,0 +1,87 @@
+# Books Stack
+# Kavita - ebook/comic reader (reads from /mnt/media/books)
+# Suwayomi - manga downloader (MangaDex + other sources)
+# rreading-glasses - Hardcover metadata proxy for Readarr
+
+services:
+  suwayomi:
+    image: ghcr.io/suwayomi/tachidesk:latest
+    container_name: suwayomi
+    restart: unless-stopped
+    ports:
+      - "${SUWAYOMI_PORT:-4567}:4567"
+    environment:
+      - TZ=${TZ}
+      - JAVA_TOOL_OPTIONS=-Dfile.encoding=UTF-8
+    volumes:
+      - /var/lib/homelab-media-configs/suwayomi:/home/suwayomi/.local/share/Tachidesk
+      - /mnt/media/books/manga:/downloads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4567/api/v1/settings"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 2m
+    networks:
+      - media_network
+
+  kavita:
+    image: jvmilazz0/kavita:latest
+    container_name: kavita
+    restart: unless-stopped
+    ports:
+      - "${KAVITA_PORT:-5001}:5000"
+    volumes:
+      - /var/lib/homelab-media-configs/kavita:/kavita/config
+      - /mnt/media/books:/books:ro
+    environment:
+      - TZ=${TZ}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 2m
+    networks:
+      - media_network
+
+  rreading-glasses:
+    image: blampe/rreading-glasses:hardcover
+    container_name: rreading-glasses
+    entrypoint: ["/main", "serve"]
+    command:
+      - --verbose
+    depends_on:
+      rreading-glasses-postgres:
+        condition: service_started
+    environment:
+      - HARDCOVER_AUTH=${HARDCOVER_AUTH}
+      - POSTGRES_HOST=rreading-glasses-postgres
+      - POSTGRES_DATABASE=rreading-glasses
+      - POSTGRES_USER=rreading-glasses
+      - POSTGRES_PASSWORD=${RREADING_GLASSES_DB_PASSWORD}
+    mem_limit: 128m
+    ports:
+      - "8788:8788"
+    networks:
+      - media_network
+    restart: unless-stopped
+
+  rreading-glasses-postgres:
+    image: postgres:17
+    container_name: rreading-glasses-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=rreading-glasses
+      - POSTGRES_PASSWORD=${RREADING_GLASSES_DB_PASSWORD}
+      - POSTGRES_DB=rreading-glasses
+      - TZ=${TZ}
+    volumes:
+      - /var/lib/homelab-media-configs/rreading-glasses-postgres:/var/lib/postgresql/data
+    networks:
+      - media_network
+
+networks:
+  media_network:
+    external: true
+    name: homelab_media_network

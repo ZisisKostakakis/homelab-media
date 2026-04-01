@@ -18,7 +18,7 @@ show_usage() {
     echo "  torrent   - VPN and download automation (Gluetun, qBit, *arr, Lidarr)"
     echo "  plex      - Media server (Plex, SuggestArr)
   music     - Music stack (Navidrome, AudioMuse)
-  manga     - Manga pipeline (Suwayomi, Komf)"
+  books     - Books stack (Kavita, Suwayomi, Komf, rreading-glasses)"
     echo "  all       - All stacks"
     echo ""
     echo "Actions:"

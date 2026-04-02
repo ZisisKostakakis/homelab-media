@@ -126,8 +126,8 @@ get_stack_and_service() {
         suwayomi)
             echo "books suwayomi"
             ;;
-        komf)
-            echo "manga komf"
+        kavita)
+            echo "books kavita"
             ;;
 
         *)

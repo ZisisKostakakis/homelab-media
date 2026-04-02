@@ -26,6 +26,7 @@ graph TB
                 UNPACKERR["Unpackerr"]
                 RECYCLARR["Recyclarr"]
                 CROSSSEED["cross-seed\n:2468"]
+                READARR["Readarr\n:8787"]
             end
         end
 

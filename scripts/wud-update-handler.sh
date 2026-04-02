@@ -129,6 +129,12 @@ get_stack_and_service() {
         kavita)
             echo "books kavita"
             ;;
+        rreading-glasses)
+            echo "books rreading-glasses"
+            ;;
+        rreading-glasses-postgres)
+            echo "books rreading-glasses-postgres"
+            ;;
 
         *)
             log "ERROR: Unknown container name: $container_name"

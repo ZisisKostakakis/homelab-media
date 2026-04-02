@@ -122,9 +122,9 @@ get_stack_and_service() {
             echo "music audiomuse-postgres"
             ;;
 
-        # Manga stack
+        # Books stack
         suwayomi)
-            echo "manga suwayomi"
+            echo "books suwayomi"
             ;;
         komf)
             echo "manga komf"

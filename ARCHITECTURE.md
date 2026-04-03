@@ -79,7 +79,7 @@ graph TB
     WUD -->|"push alerts"| NTFY
 
     %% VPN namespace internal (localhost)
-    GLUETUN --- QB & SONARR & RADARR & PROWLARR & BAZARR & FLARE & UNPACKERR & RECYCLARR & CROSSSEED
+    GLUETUN --- QB & SONARR & RADARR & PROWLARR & BAZARR & FLARE & UNPACKERR & RECYCLARR & CROSSSEED & READARR
 
     %% Automation connections (localhost within VPN namespace)
     PROWLARR -->|"RSS/search"| SONARR & RADARR
@@ -280,7 +280,8 @@ graph LR
         UN["Unpackerr"]
         RC["Recyclarr"]
         CS["cross-seed\n@localhost:2468"]
-        GL --- QB2 & SN & RD & PW & BZ & FS & UN & RC & CS
+        RA["Readarr\n@localhost:8787"]
+        GL --- QB2 & SN & RD & PW & BZ & FS & UN & RC & CS & RA
     end
 
     subgraph BRIDGE["🌐 homelab_media_network (bridge)\nSubnet: 172.19.0.0/16"]

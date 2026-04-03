@@ -60,6 +60,14 @@ graph TB
             AM_REDIS & AM_PG --- AM_FLASK & AM_WORKER
         end
 
+        subgraph BOOKS_STACK["📖 Books Stack  (homelab-books)"]
+            KAVITA["Kavita\n:5001"]
+            SUWAYOMI["Suwayomi\n:4567"]
+            RREADING["rreading-glasses\n:8788"]
+            RREADING_PG["rreading-glasses-postgres"]
+            RREADING --> RREADING_PG
+        end
+
         subgraph SHARED_NET["🌐 homelab_media_network (bridge)"]
         end
 
@@ -107,15 +115,22 @@ graph TB
 
     %% Storage
     QB & SONARR & RADARR & BAZARR & UNPACKERR --> MEDIA
+    READARR -->|"downloads books"| MEDIA
     PLEX --> MEDIA
     NAVIDROME -->|"reads music\n(read-only)"| MEDIA
+    SUWAYOMI -->|"downloads manga"| MEDIA
+    KAVITA -->|"reads books/manga\n(read-only)"| MEDIA
     SERVICES_STACK -.-> CONFIGS
+
+    %% Books pipeline
+    READARR -->|"notify on import"| KAVITA
 
     %% Network membership
     TORRENT_STACK -.-> SHARED_NET
     PLEX_STACK -.-> SHARED_NET
     SERVICES_STACK -.-> SHARED_NET
     MUSIC_STACK -.-> SHARED_NET
+    BOOKS_STACK -.-> SHARED_NET
 ```
 
 ---
@@ -299,6 +314,9 @@ graph LR
         NAV2["Navidrome\n:4533"]
         AMF["AudioMuse flask\n:8000"]
         AMW["AudioMuse worker"]
+        SUW["Suwayomi\n:4567"]
+        KAV["Kavita\n:5001"]
+        RRG["rreading-glasses\n:8788"]
     end
 
     subgraph EXTERNAL["☁️ External"]

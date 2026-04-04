@@ -10,6 +10,11 @@ PUID=1000
 PGID=1000
 TZ=Europe/London
 TZ_MAINTAINERR=Europe/Belfast
+BESZEL_AGENT_KEY=<FROM YOUR .env FILE>
+WUD_AUTH_BASIC_ADMIN_HASH=<FROM YOUR .env FILE>
+WUD_NTFY_TOPIC=homelab-wud-docker-updates
+GLUETUN_MONITOR_NTFY_TOPIC=<FROM YOUR .env FILE>
+AUDIOMUSE_PORT=8000
 
 # ----------------
 # homelab-torrent

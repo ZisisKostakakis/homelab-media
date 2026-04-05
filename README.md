@@ -148,7 +148,7 @@ When Gluetun restarts (due to an update, crash, or VPN reconnect), all services 
 
 See the [VPN Auto-Healing diagram](./ARCHITECTURE.md#3-vpn-auto-healing-flow) for the full sequence.
 
-### 6. Container Auto-Update Pipeline (WUD + wud-webhook)
+### 5. Container Auto-Update Pipeline (WUD + wud-webhook)
 
 What's Up Docker checks all container image tags daily at 06:00. When updates are found, it sends a batch push notification to ntfy.sh and triggers a webhook to the `wud-webhook` Python server for each updated container. The webhook server calls `wud-update-handler.sh`, which maps the container name to its stack, then runs `stack-manage.sh <stack> update <service>` to pull the new image and recreate the container. Success/failure notifications are sent via ntfy.sh.
 

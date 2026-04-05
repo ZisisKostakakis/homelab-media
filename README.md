@@ -87,7 +87,7 @@ All services in this stack run inside the Gluetun VPN network namespace. They co
 | **FlareSolverr** | `flaresolverr/flaresolverr` | 8191 | Cloudflare CAPTCHA bypass proxy |
 | **Unpackerr** | `golift/unpackerr` | — | RAR/ZIP archive extractor |
 | **Recyclarr** | `recyclarr/recyclarr` | — | TRaSH Guides quality profile sync |
-| **cross-seed** | `crossseed/cross-seed` | 2468 | Cross-seed torrent matching |
+| **Readarr** | `linuxserver/readarr` | 8282 | Book/ebook PVR automation |
 
 ### Plex Stack (`docker-compose-plex.yml`)
 

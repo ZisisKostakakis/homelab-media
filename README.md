@@ -340,7 +340,7 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 | Prowlarr | `:9696` | torrent | VPN | Indexer manager |
 | Bazarr | `:6767` | torrent | VPN | Subtitle downloader |
 | FlareSolverr | `:8191` | torrent | VPN | CF bypass |
-| cross-seed | `:2468` | torrent | VPN | Cross-seed daemon |
+| Readarr | `:8282` | torrent | VPN | Book automation |
 | Plex | `:32400` | plex | host | Media server |
 | SuggestArr | `:5000` | plex | bridge | Recommendations |
 | Kitana | `:31337` | plex | bridge | Plugin manager |

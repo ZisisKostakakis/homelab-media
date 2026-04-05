@@ -313,7 +313,8 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 ├── wud-updates/        # Update handler logs
 ├── navidrome/          # Navidrome database and config
 ├── audiomuse-postgres/ # AudioMuse PostgreSQL data
-└── audiomuse-redis/    # AudioMuse Redis data
+├── audiomuse-redis/    # AudioMuse Redis data
+└── kavita/             # Kavita database and config
 ```
 
 ---

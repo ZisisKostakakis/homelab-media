@@ -315,7 +315,8 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 ├── audiomuse-postgres/ # AudioMuse PostgreSQL data
 ├── audiomuse-redis/    # AudioMuse Redis data
 ├── kavita/             # Kavita database and config
-└── suwayomi/           # Suwayomi database and downloads
+├── suwayomi/           # Suwayomi database and downloads
+└── rreading-glasses-postgres/ # rreading-glasses PostgreSQL data
 ```
 
 ---

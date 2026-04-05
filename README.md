@@ -308,7 +308,7 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 ├── seerr/              # Settings + user database
 ├── plex/               # Plex metadata + preferences
 ├── tautulli/           # Play history database
-├── cross-seed/         # Matching config
+├── readarr/            # Book automation database + config
 ├── gluetun-monitor/    # Restart log + config overrides
 ├── wud-updates/        # Update handler logs
 ├── navidrome/          # Navidrome database and config

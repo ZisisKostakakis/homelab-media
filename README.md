@@ -156,7 +156,7 @@ A daily cron job (`scripts/cron-jobs/update-all-stacks.sh`) also runs `stack-man
 
 See the [Container Auto-Update diagram](./ARCHITECTURE.md#4-container-auto-update-flow) for the full sequence.
 
-### 7. Media Cleanup Pipeline (Maintainerr)
+### 6. Media Cleanup Pipeline (Maintainerr)
 
 Maintainerr applies configurable rules to remove media from Plex (and optionally from Seerr and the filesystem) based on criteria like: not watched in N days, added more than N months ago, or below a watch count threshold. This keeps the library from growing indefinitely without manual curation.
 

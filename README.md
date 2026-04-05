@@ -160,7 +160,7 @@ See the [Container Auto-Update diagram](./ARCHITECTURE.md#4-container-auto-updat
 
 Maintainerr applies configurable rules to remove media from Plex (and optionally from Seerr and the filesystem) based on criteria like: not watched in N days, added more than N months ago, or below a watch count threshold. This keeps the library from growing indefinitely without manual curation.
 
-### 8. Plex Playback → Bandwidth Management (plex-qbit-manager)
+### 7. Plex Playback → Bandwidth Management (plex-qbit-manager)
 
 `scripts/plex-qbit-manager.py` is called by Tautulli on every Plex playback event. When any stream starts, it pauses all active qBittorrent torrents. When all streams end, it resumes them. A file-based counter with locking ensures multiple concurrent streams are tracked correctly — torrents remain paused until the last stream stops.
 

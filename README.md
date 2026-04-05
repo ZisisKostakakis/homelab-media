@@ -305,7 +305,7 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 ├── lidarr/             # Database, config.xml
 ├── prowlarr/           # Database, indexer configs
 ├── bazarr/             # Database, subtitle configs
-├── overseerr/          # Settings + user database
+├── seerr/              # Settings + user database
 ├── plex/               # Plex metadata + preferences
 ├── tautulli/           # Play history database
 ├── cross-seed/         # Matching config

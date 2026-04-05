@@ -347,6 +347,9 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 | Tautulli | `:8787` | plex | bridge | Play stats + automation |
 | Navidrome | `:4533` | music | bridge | Music streaming |
 | AudioMuse | `:8000` | music | bridge | AI music analysis UI |
+| Kavita | `:5001` | books | bridge | Ebook/comics reader |
+| Suwayomi | `:4567` | books | bridge | Manga downloader + reader |
+| rreading-glasses | `:8788` | books | bridge | Hardcover metadata proxy |
 
 ---
 

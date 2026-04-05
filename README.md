@@ -142,11 +142,7 @@ Bazarr monitors Sonarr and Radarr for newly imported media and automatically sea
 
 Recyclarr syncs quality profiles from [TRaSH Guides](https://trash-guides.info/) to Sonarr and Radarr on container start and on a schedule. This keeps custom formats, release group scoring, and quality cutoffs up to date with community recommendations without manual configuration.
 
-### 4. Cross-Seed Pipeline
-
-cross-seed runs as a daemon and watches qBittorrent's torrent backup directory. When a completed download matches torrents on other indexers (by content hash), it automatically adds the matching torrent to qBittorrent — maximizing seeding ratio with zero extra bandwidth.
-
-### 5. VPN Auto-Healing Pipeline (gluetun-monitor)
+### 4. VPN Auto-Healing Pipeline (gluetun-monitor)
 
 When Gluetun restarts (due to an update, crash, or VPN reconnect), all services sharing its network namespace lose connectivity. The `gluetun-monitor` container watches Docker events for Gluetun restart signals, waits for Gluetun to become healthy, then stops and recreates all VPN-dependent services so they rejoin the new network namespace. Rate limiting prevents restart loops (max 5 restarts per hour). Push notifications via ntfy.sh report success or failure.
 

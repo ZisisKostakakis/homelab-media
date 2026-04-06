@@ -30,7 +30,7 @@ show_usage() {
     echo "  update    - Pull images and recreate containers"
     echo "  logs      - Show logs (last 50 lines)"
     echo "  status    - Show container status"
-  echo "  health    - Show running homelab container health summary"
+    echo "  health    - Show running homelab container health summary"
     echo ""
     echo "Service (optional):"
     echo "  Specify a service name to manage individual services within a stack"

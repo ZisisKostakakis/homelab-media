@@ -456,7 +456,7 @@ The primary operations tool. Wraps `docker compose` commands for each stack:
 ```bash
 ./stack-manage.sh <stack> <action> [service]
 
-# Stacks: services | torrent | plex | music | all
+# Stacks: services | torrent | plex | music | books | all
 # Actions: start | stop | restart | down | pull | update | logs | status | health
 ```
 

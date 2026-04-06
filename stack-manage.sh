@@ -97,7 +97,7 @@ manage_stack() {
             ;;
         health)
             echo "=== Container health for $project_name ==="
-            docker ps --format "table {{.Names}}\t{{.Status}}" | grep "homelab-" || echo "(no homelab containers running)"
+            docker ps --format "table {{.Names}}\t{{.Status}}" | grep "^${project_name}-" || echo "(no ${project_name} containers running)"
             ;;
         *)
             echo "Error: Unknown action '$action'"

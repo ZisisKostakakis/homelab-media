@@ -16,9 +16,9 @@ show_usage() {
     echo "Stacks:"
     echo "  services  - User-facing services (Seerr, Maintainerr, WUD, etc.)"
     echo "  torrent   - VPN and download automation (Gluetun, qBit, *arr, Lidarr)"
-    echo "  plex      - Media server (Plex, SuggestArr)
-  music     - Music stack (Navidrome, AudioMuse)
-  books     - Books stack (Kavita, Suwayomi, Komf, rreading-glasses)"
+    echo "  plex      - Media server (Plex, SuggestArr)"
+    echo "  music     - Music stack (Navidrome, AudioMuse)"
+    echo "  books     - Books stack (Kavita, Suwayomi, rreading-glasses)"
     echo "  all       - All stacks"
     echo ""
     echo "Actions:"

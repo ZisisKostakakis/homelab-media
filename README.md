@@ -440,7 +440,7 @@ After all containers are running, configure in this order:
 3. **Radarr** (`:7878`) — Same as Sonarr.
 4. **Lidarr** (`:8686`) — Same as Sonarr/Radarr. For music downloads.
 5. **Bazarr** (`:6767`) — Connect Sonarr and Radarr. Add subtitle providers.
-6. **Recyclarr** — Edit `recyclarr/recyclarr.yml` with your Sonarr/Radarr API keys and run once: `./stack-manage.sh torrent restart recyclarr`
+6. **Recyclarr** — API keys are read from `.env` automatically. Run once to apply: `./stack-manage.sh torrent restart recyclarr`
 7. **Seerr** (`:5055`) — Connect to Plex, then connect Sonarr and Radarr.
 8. **Maintainerr** (`:6246`) — Connect Plex and Seerr, then define cleanup rules.
 9. **Tautulli** (`:8787`) — Configure notification agent to call `/scripts/plex-qbit-manager.py` on playback start/stop events (pauses torrents during Plex streams).

@@ -4,10 +4,11 @@ set -e
 # --- Homelab Media Stack Bootstrap Script ---
 # This script will:
 # - Set up config directories
-# - Pull latest images for modular stacks
-# - Bring up containers (torrent, plex, services)
+# - Pull latest images for all modular stacks
+# - Bring up all containers (services, torrent, plex, music, books)
 # - Display access URLs
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_BASE="/var/lib/homelab-media-configs"
 DATA_BASE="/mnt/media"
 

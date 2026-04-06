@@ -13,18 +13,41 @@ CONFIG_BASE="/var/lib/homelab-media-configs"
 DATA_BASE="/mnt/media"
 
 # Create necessary config directories
-mkdir -p "$CONFIG_BASE/gluetun" \
-         "$CONFIG_BASE/qbittorrent" \
-         "$CONFIG_BASE/cross-seed" \
-         "$CONFIG_BASE/sonarr" \
-         "$CONFIG_BASE/radarr" \
-         "$CONFIG_BASE/bazarr" \
-         "$CONFIG_BASE/prowlarr" \
-         "$CONFIG_BASE/recyclarr" \
-         "$CONFIG_BASE/overseerr" \
-         "$CONFIG_BASE/maintainerr" \
-         "$CONFIG_BASE/plex"
-mkdir -p "$DATA_BASE/downloads" "$DATA_BASE/tv" "$DATA_BASE/movies" "$DATA_BASE/transcode" "$DATA_BASE/anime/tv" "$DATA_BASE/anime/movies"
+mkdir -p \
+    "$CONFIG_BASE/gluetun" \
+    "$CONFIG_BASE/qbittorrent" \
+    "$CONFIG_BASE/sonarr" \
+    "$CONFIG_BASE/radarr" \
+    "$CONFIG_BASE/lidarr" \
+    "$CONFIG_BASE/readarr" \
+    "$CONFIG_BASE/bazarr" \
+    "$CONFIG_BASE/prowlarr" \
+    "$CONFIG_BASE/recyclarr" \
+    "$CONFIG_BASE/seerr" \
+    "$CONFIG_BASE/maintainerr" \
+    "$CONFIG_BASE/plex" \
+    "$CONFIG_BASE/tautulli" \
+    "$CONFIG_BASE/filebrowser" \
+    "$CONFIG_BASE/picard" \
+    "$CONFIG_BASE/beszel" \
+    "$CONFIG_BASE/gluetun-monitor" \
+    "$CONFIG_BASE/wud-updates" \
+    "$CONFIG_BASE/navidrome" \
+    "$CONFIG_BASE/audiomuse-postgres" \
+    "$CONFIG_BASE/audiomuse-redis" \
+    "$CONFIG_BASE/kavita" \
+    "$CONFIG_BASE/suwayomi" \
+    "$CONFIG_BASE/rreading-glasses-postgres"
+
+mkdir -p \
+    "$DATA_BASE/downloads" \
+    "$DATA_BASE/tv" \
+    "$DATA_BASE/movies" \
+    "$DATA_BASE/music" \
+    "$DATA_BASE/books" \
+    "$DATA_BASE/transcode" \
+    "$DATA_BASE/anime/tv" \
+    "$DATA_BASE/anime/movies"
 
 # Pull docker images for all modular stacks
 echo "Pulling images for services stack..."

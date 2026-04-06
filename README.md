@@ -426,6 +426,9 @@ Start services in this order to avoid dependency failures:
 
 # 4. Start the music stack
 ./stack-manage.sh music start
+
+# 5. Start the books stack
+./stack-manage.sh books start
 ```
 
 ### First-Time Configuration Order

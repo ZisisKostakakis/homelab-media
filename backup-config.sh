@@ -92,19 +92,15 @@ echo ""
 echo -e "${GREEN}Backing up Docker configuration...${NC}"
 mkdir -p "$BACKUP_DIR/docker"
 
-if [ -f "/home/blaze/Github/homelab-media/docker-compose.yml" ]; then
-    cp "/home/blaze/Github/homelab-media/docker-compose.yml" "$BACKUP_DIR/docker/"
-    echo -e "  → docker-compose.yml"
-fi
+for compose_file in "$SCRIPT_DIR"/docker-compose-*.yml; do
+    fname="$(basename "$compose_file")"
+    cp "$compose_file" "$BACKUP_DIR/docker/"
+    echo -e "  → $fname"
+done
 
-if [ -f "/home/blaze/Github/homelab-media/.env" ]; then
-    cp "/home/blaze/Github/homelab-media/.env" "$BACKUP_DIR/docker/"
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    cp "$SCRIPT_DIR/.env" "$BACKUP_DIR/docker/"
     echo -e "  → .env"
-fi
-
-if [ -d "/home/blaze/Github/homelab-media/maintainerr" ]; then
-    cp -r "/home/blaze/Github/homelab-media/maintainerr" "$BACKUP_DIR/docker/"
-    echo -e "  → maintainerr config"
 fi
 
 # Create a backup summary

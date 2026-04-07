@@ -49,15 +49,21 @@ mkdir -p \
     "$DATA_BASE/anime/tv" \
     "$DATA_BASE/anime/movies"
 
-# Pull docker images for all modular stacks
+# Pull docker images for all stacks
 echo "Pulling images for services stack..."
-docker compose -p homelab-services -f docker-compose-services.yml pull
+"$SCRIPT_DIR/stack-manage.sh" services pull
 
 echo "Pulling images for torrent stack..."
-docker compose -p homelab-torrent -f docker-compose-torrent.yml pull
+"$SCRIPT_DIR/stack-manage.sh" torrent pull
 
 echo "Pulling images for plex stack..."
-docker compose -p homelab-plex -f docker-compose-plex.yml pull
+"$SCRIPT_DIR/stack-manage.sh" plex pull
+
+echo "Pulling images for music stack..."
+"$SCRIPT_DIR/stack-manage.sh" music pull
+
+echo "Pulling images for books stack..."
+"$SCRIPT_DIR/stack-manage.sh" books pull
 
 # Start all containers in order (services first to create media_network)
 echo "Starting services stack (Overseerr, Maintainerr, Pulse)..."

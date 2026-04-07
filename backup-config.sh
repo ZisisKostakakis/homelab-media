@@ -114,26 +114,33 @@ This backup contains:
 - Prowlarr: Indexer configurations and API keys
 - Sonarr: Series settings, download clients, quality profiles
 - Radarr: Movie settings, download clients, quality profiles
+- Lidarr: Music automation settings
+- Readarr: Book automation settings
 - Bazarr: Subtitle provider settings
-- Overseerr: Request system configuration
+- Seerr: Request system configuration
+- Maintainerr: Media cleanup rules
 - qBittorrent: Download client settings (no actual torrents)
 - Recyclarr: Quality profile automation
 - Plex: Server preferences and settings
+- Tautulli: Play history database
 - Gluetun: VPN configuration
-- Docker: docker-compose.yml and environment files
+- Navidrome: Music server config and database
+- Kavita: Ebook/comics reader config
+- Suwayomi: Manga reader config
+- Docker: docker-compose files and environment file
 
 What is NOT included:
-- Media files (movies, TV shows)
+- Media files (movies, TV shows, music, books)
 - Active torrents and their data
 - Log files
 - Database logs and temporary files
 - Media artwork and posters
 
 Restore instructions:
-1. Stop all containers: docker compose down
-2. Copy backed up configs to /mnt/media/config/
-3. Restore docker-compose.yml if needed
-4. Start containers: docker compose up -d
+1. Stop all containers: ./stack-manage.sh all down
+2. Copy backed up configs to /var/lib/homelab-media-configs/
+3. Restore docker-compose files and .env if needed
+4. Start containers: ./stack-manage.sh all start
 EOF
 
 verify_backup() {

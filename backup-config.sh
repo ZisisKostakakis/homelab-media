@@ -76,11 +76,13 @@ backup_service "radarr"            # Movie automation, download client config
 backup_service "lidarr"            # Music automation, download client config
 backup_service "readarr"           # Book automation, download client config
 backup_service "bazarr"            # Subtitle downloader config
-backup_service "overseerr"         # Request system config
-backup_service "qbittorrent"   # Torrent client settings (excluding torrents)
-backup_service "recyclarr"     # Quality profile configs
-backup_service "plex"          # Plex server preferences
-backup_service "gluetun"       # VPN configuration
+backup_service "seerr"             # Request system config
+backup_service "maintainerr"       # Media cleanup rules
+backup_service "qbittorrent"       # Torrent client settings (excluding torrents)
+backup_service "recyclarr"         # Quality profile configs
+backup_service "plex"              # Plex server preferences
+backup_service "tautulli"          # Play history database
+backup_service "gluetun"           # VPN configuration
 
 # Backup docker-compose and environment files
 echo ""

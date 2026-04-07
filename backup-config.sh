@@ -70,11 +70,12 @@ backup_service() {
 echo -e "${GREEN}Backing up service configurations...${NC}"
 echo ""
 
-backup_service "prowlarr"      # Indexers, connections
-backup_service "sonarr"        # TV show automation, download client config
-backup_service "radarr"        # Movie automation, download client config
-backup_service "bazarr"        # Subtitle downloader config
-backup_service "overseerr"     # Request system config
+backup_service "prowlarr"          # Indexers, connections
+backup_service "sonarr"            # TV show automation, download client config
+backup_service "radarr"            # Movie automation, download client config
+backup_service "lidarr"            # Music automation, download client config
+backup_service "bazarr"            # Subtitle downloader config
+backup_service "overseerr"         # Request system config
 backup_service "qbittorrent"   # Torrent client settings (excluding torrents)
 backup_service "recyclarr"     # Quality profile configs
 backup_service "plex"          # Plex server preferences

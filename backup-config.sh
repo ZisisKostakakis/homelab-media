@@ -74,6 +74,7 @@ backup_service "prowlarr"          # Indexers, connections
 backup_service "sonarr"            # TV show automation, download client config
 backup_service "radarr"            # Movie automation, download client config
 backup_service "lidarr"            # Music automation, download client config
+backup_service "readarr"           # Book automation, download client config
 backup_service "bazarr"            # Subtitle downloader config
 backup_service "overseerr"         # Request system config
 backup_service "qbittorrent"   # Torrent client settings (excluding torrents)

@@ -66,14 +66,20 @@ echo "Pulling images for books stack..."
 "$SCRIPT_DIR/stack-manage.sh" books pull
 
 # Start all containers in order (services first to create media_network)
-echo "Starting services stack (Overseerr, Maintainerr, Pulse)..."
-docker compose -p homelab-services -f docker-compose-services.yml up -d
+echo "Starting services stack (Seerr, Maintainerr, WUD, Beszel, Portainer)..."
+"$SCRIPT_DIR/stack-manage.sh" services start
 
 echo "Starting torrent stack (VPN + downloaders)..."
-docker compose -p homelab-torrent -f docker-compose-torrent.yml up -d
+"$SCRIPT_DIR/stack-manage.sh" torrent start
 
 echo "Starting plex stack..."
-docker compose -p homelab-plex -f docker-compose-plex.yml up -d
+"$SCRIPT_DIR/stack-manage.sh" plex start
+
+echo "Starting music stack..."
+"$SCRIPT_DIR/stack-manage.sh" music start
+
+echo "Starting books stack..."
+"$SCRIPT_DIR/stack-manage.sh" books start
 
 echo ""
 echo "--- Homelab Media Stack is launching! ---"

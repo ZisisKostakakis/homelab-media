@@ -165,7 +165,7 @@ cascade_restart_torrent_stack() {
     log_event "INFO" "=== Starting cascade restart of torrent stack ==="
 
     # List of VPN-dependent services to restart
-    local services="qbittorrent sonarr radarr prowlarr bazarr flaresolverr lidarr unpackerr recyclarr"
+    local services="qbittorrent sonarr radarr readarr prowlarr bazarr flaresolverr lidarr unpackerr recyclarr"
 
     # Stop and remove all VPN-dependent services
     log_event "INFO" "Stopping and removing VPN-dependent services..."

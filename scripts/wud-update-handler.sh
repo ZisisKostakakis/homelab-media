@@ -25,8 +25,8 @@ get_stack_and_service() {
 
     case $container_name in
         # Services stack
-        overseerr)
-            echo "services overseerr"
+        seerr|overseerr)
+            echo "services seerr"
             ;;
         maintainerr)
             echo "services maintainerr"

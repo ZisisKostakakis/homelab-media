@@ -83,7 +83,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
             # Remove container prefix if present (e.g., "homelab-services-overseerr" -> "overseerr")
             # or project prefix "homelab-torrent-" etc
             container_clean = container
-            for prefix in ['homelab-services-', 'homelab-torrent-', 'homelab-plex-']:
+            for prefix in ['homelab-services-', 'homelab-torrent-', 'homelab-plex-', 'homelab-music-', 'homelab-books-']:
                 if container_clean.startswith(prefix):
                     container_clean = container_clean[len(prefix):]
                     break

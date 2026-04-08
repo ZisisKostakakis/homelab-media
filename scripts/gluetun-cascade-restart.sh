@@ -185,10 +185,10 @@ cascade_restart_torrent_stack() {
     log_event "INFO" "Recreating VPN-dependent services..."
     if docker run --rm \
         -v /var/run/docker.sock:/var/run/docker.sock \
-        -v /root/Github/homelab-media:/workdir \
+        -v /homelab:/workdir \
         -w /workdir \
-        docker/compose:1.29.2 \
-        -p homelab-torrent -f docker-compose-torrent.yml up -d --no-deps qbittorrent sonarr radarr prowlarr bazarr flaresolverr lidarr unpackerr recyclarr 2>&1 | grep -vE "(Pulling|Downloaded|Network|Volume)" || true; then
+        docker/compose-bin:latest \
+        -p homelab-torrent -f docker-compose-torrent.yml up -d --no-deps qbittorrent sonarr radarr readarr prowlarr bazarr flaresolverr lidarr unpackerr recyclarr 2>&1 | grep -vE "(Pulling|Downloaded|Network|Volume)" || true; then
         log_event "INFO" "Services recreated successfully"
     else
         log_event "ERROR" "Failed to recreate services"

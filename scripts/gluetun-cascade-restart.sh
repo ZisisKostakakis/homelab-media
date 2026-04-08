@@ -249,7 +249,7 @@ send_success_notification() {
 Torrent stack restarted in ${duration}s after Gluetun restart.
 All VPN-dependent services have rejoined the network namespace.
 
-Services: qbittorrent, sonarr, radarr, prowlarr, bazarr, flaresolverr, lidarr, unpackerr, recyclarr"
+Services: qbittorrent, sonarr, radarr, readarr, prowlarr, bazarr, flaresolverr, lidarr, unpackerr, recyclarr"
 
     send_notification "Cascade Restart Success" "$msg" 3
 }

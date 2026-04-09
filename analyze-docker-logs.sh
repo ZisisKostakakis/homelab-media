@@ -27,8 +27,9 @@ while [[ $# -gt 0 ]]; do
             ;;
         -h|--help)
             echo "Usage: $0 [--since TIME]"
-            echo "  --since: Time period to analyze (e.g., 1h, 30m, 24h, 2d)"
+            echo "  --since: Time period to analyze (e.g., 1h, 30m, 24h, 48h)"
             echo "  Default: 24h"
+            echo "  Note: Use hours (h), minutes (m), or seconds (s) only — 'd' is not supported"
             exit 0
             ;;
         *)
@@ -38,6 +39,13 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Validate TIME_PERIOD — docker logs --since only supports h, m, s suffixes (not d)
+if ! [[ "$TIME_PERIOD" =~ ^[0-9]+[hms]$ ]]; then
+    echo "Error: Invalid time period '$TIME_PERIOD'"
+    echo "Use a number followed by h (hours), m (minutes), or s (seconds). E.g., 48h, 30m"
+    exit 1
+fi
 
 echo "=================================================="
 echo "Docker Compose Log Analysis"

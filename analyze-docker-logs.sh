@@ -91,96 +91,108 @@ echo ""
 echo "=================================================="
 echo ""
 
+# Accumulated totals — populated by analyze_container, used in summary
+TOTAL_ERRORS=0
+TOTAL_WARNINGS=0
+
 # Function to analyze logs for a container
 analyze_container() {
+    # Run with errexit disabled — we handle errors explicitly inside
+    set +e
     local container=$1
-    echo "=== $container ==="
+    local project=$2
+    echo "=== $container [$project] ==="
 
-    # Get logs for the time period using docker logs
-    LOGS=$(docker logs --since="$TIME_PERIOD" "$container" 2>&1 || echo "")
+    # Get logs for the time period — capture stderr too (docker logs writes to stderr)
+    local logs
+    logs=$(docker logs --since="$TIME_PERIOD" "$container" 2>&1)
+    local fetch_status=$?
+    if [ $fetch_status -ne 0 ]; then
+        echo "  Warning: failed to fetch logs for $container"
+        echo ""
+        set -e
+        return
+    fi
 
-    if [ -z "$LOGS" ]; then
+    if [ -z "$logs" ]; then
         # Check if container has any logs at all
-        ANY_LOGS=$(docker logs --tail 1 "$container" 2>&1 || echo "")
-        if [ -z "$ANY_LOGS" ]; then
+        local any_logs
+        any_logs=$(docker logs --tail 1 "$container" 2>&1) || true
+        if [ -z "$any_logs" ]; then
             echo "  No logs found (container has never logged)"
         else
-            # Get the timestamp of the last log entry
-            LAST_LOG=$(docker logs --timestamps --tail 1 "$container" 2>&1 | head -1)
-            TIMESTAMP=$(echo "$LAST_LOG" | cut -d' ' -f1)
-            echo "  No logs in last $TIME_PERIOD (last log: $TIMESTAMP)"
+            local last_log
+            local timestamp
+            last_log=$(docker logs --timestamps --tail 1 "$container" 2>&1 | head -1) || true
+            timestamp=$(echo "$last_log" | cut -d' ' -f1)
+            echo "  No logs in last $TIME_PERIOD (last log: $timestamp)"
         fi
         echo ""
         return
     fi
 
+    # Strip ANSI color codes before pattern matching
+    local clean_logs
+    clean_logs=$(echo "$logs" | sed 's/\x1b\[[0-9;]*m//g')
+
     # Count total log lines
-    LOG_LINE_COUNT=$(echo "$LOGS" | wc -l)
+    local log_line_count
+    log_line_count=$(echo "$logs" | wc -l)
 
-    # Strip ANSI color codes before searching (they interfere with pattern matching)
-    CLEAN_LOGS=$(echo "$LOGS" | sed 's/\x1b\[[0-9;]*m//g')
+    # Error/warning patterns — anchored to avoid matching JSON keys like "error_code" or
+    # noisy phrases like "failed to find optional dependency"
+    local error_count warn_count
+    error_count=$(echo "$clean_logs" | grep -iE "(^|[[:space:]|\[])(\berror\b|fatal|critical|exception)([[:space:]|\]|:]|$)" | grep -viE "optional.dependency|error_code.*:[[:space:]]*0" | wc -l)
+    warn_count=$(echo "$clean_logs" | grep -iE "(^|[[:space:]|\[])warn(ing)?([[:space:]|\]|:]|$)" | wc -l)
 
-    # Count errors using grep
-    ERROR_COUNT=$(echo "$CLEAN_LOGS" | grep -iE "error|fatal|critical|exception|failed" | wc -l)
-    WARN_COUNT=$(echo "$CLEAN_LOGS" | grep -iE "warn|warning" | wc -l)
+    # Also count bare "failed" lines separately (high noise risk — only show, don't inflate totals)
+    local failed_count
+    failed_count=$(echo "$clean_logs" | grep -iE "\bfailed\b" | grep -viE "optional.dependency" | wc -l)
 
-    echo "  Total log lines: $LOG_LINE_COUNT"
-    echo "  Errors: $ERROR_COUNT"
-    echo "  Warnings: $WARN_COUNT"
+    echo "  Total log lines: $log_line_count"
+    echo "  Errors: $error_count"
+    echo "  Warnings: $warn_count"
+    [ "$failed_count" -gt 0 ] && echo "  'Failed' mentions: $failed_count (may include non-critical)"
 
     # Show recent errors
-    if [ "$ERROR_COUNT" -gt 0 ]; then
+    if [ "$error_count" -gt 0 ]; then
         echo ""
         echo "  Recent errors:"
-        echo "$CLEAN_LOGS" | grep -iE "error|fatal|critical|exception|failed" | tail -5 | sed 's/^/    /'
+        echo "$clean_logs" | grep -iE "(^|[[:space:]|\[])(\berror\b|fatal|critical|exception)([[:space:]|\]|:]|$)" | grep -viE "optional.dependency|error_code.*:[[:space:]]*0" | tail -5 | sed 's/^/    /'
     fi
 
     # Show recent warnings
-    if [ "$WARN_COUNT" -gt 0 ]; then
+    if [ "$warn_count" -gt 0 ]; then
         echo ""
         echo "  Recent warnings:"
-        echo "$CLEAN_LOGS" | grep -iE "warn|warning" | tail -3 | sed 's/^/    /'
+        echo "$clean_logs" | grep -iE "(^|[[:space:]|\[])warn(ing)?([[:space:]|\]|:]|$)" | tail -3 | sed 's/^/    /'
     fi
 
-    # Show sample of recent logs (last 3 lines) if no errors/warnings
-    if [ "$ERROR_COUNT" -eq 0 ] && [ "$WARN_COUNT" -eq 0 ] && [ "$LOG_LINE_COUNT" -gt 0 ]; then
+    # Show sample of recent logs if no errors or warnings
+    if [ "$error_count" -eq 0 ] && [ "$warn_count" -eq 0 ] && [ "$log_line_count" -gt 0 ]; then
         echo ""
         echo "  Recent activity (last 3 lines):"
-        echo "$LOGS" | tail -3 | sed 's/^/    /'
+        echo "$logs" | tail -3 | sed 's/^/    /'
     fi
 
     echo ""
+
+    # Accumulate totals (uses global vars — bash functions share parent scope)
+    TOTAL_ERRORS=$((TOTAL_ERRORS + error_count))
+    TOTAL_WARNINGS=$((TOTAL_WARNINGS + warn_count))
+    set -e
 }
 
-# Analyze each container
+# Analyze each container — pass project name for context in output
 for project in "${!SERVICES_BY_PROJECT[@]}"; do
-    for container in ${SERVICES_BY_PROJECT[$project]}; do
-        analyze_container "$container"
-    done
+    while IFS= read -r container; do
+        analyze_container "$container" "$project"
+    done <<< "${SERVICES_BY_PROJECT[$project]}"
 done
 
 echo "=================================================="
 echo "Summary"
 echo "=================================================="
-
-# Overall statistics
-TOTAL_ERRORS=0
-TOTAL_WARNINGS=0
-
-for project in "${!SERVICES_BY_PROJECT[@]}"; do
-    for container in ${SERVICES_BY_PROJECT[$project]}; do
-        LOGS=$(docker logs --since="$TIME_PERIOD" "$container" 2>&1 || echo "")
-        if [ -n "$LOGS" ]; then
-            # Strip ANSI codes before counting
-            CLEAN_LOGS=$(echo "$LOGS" | sed 's/\x1b\[[0-9;]*m//g')
-            ERRORS=$(echo "$CLEAN_LOGS" | grep -iE "error|fatal|critical|exception|failed" | wc -l)
-            WARNINGS=$(echo "$CLEAN_LOGS" | grep -iE "warn|warning" | wc -l)
-            TOTAL_ERRORS=$((TOTAL_ERRORS + ERRORS))
-            TOTAL_WARNINGS=$((TOTAL_WARNINGS + WARNINGS))
-        fi
-    done
-done
-
 echo "Total Errors: $TOTAL_ERRORS"
 echo "Total Warnings: $TOTAL_WARNINGS"
 echo ""

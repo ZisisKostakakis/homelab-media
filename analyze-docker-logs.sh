@@ -62,7 +62,7 @@ if [ -z "$ALL_CONTAINERS" ]; then
     exit 1
 fi
 
-# Build list of services per project
+# Build list of services per project, newline-delimited to handle names safely
 declare -A SERVICES_BY_PROJECT
 
 while IFS=$'\t' read -r container_name project; do
@@ -70,7 +70,7 @@ while IFS=$'\t' read -r container_name project; do
         if [ -z "${SERVICES_BY_PROJECT[$project]:-}" ]; then
             SERVICES_BY_PROJECT[$project]="$container_name"
         else
-            SERVICES_BY_PROJECT[$project]="${SERVICES_BY_PROJECT[$project]} $container_name"
+            SERVICES_BY_PROJECT[$project]="${SERVICES_BY_PROJECT[$project]}"$'\n'"$container_name"
         fi
     fi
 done <<< "$ALL_CONTAINERS"
@@ -83,9 +83,9 @@ fi
 echo "Analyzing logs for services:"
 for project in "${!SERVICES_BY_PROJECT[@]}"; do
     echo "  [$project]:"
-    for service in ${SERVICES_BY_PROJECT[$project]}; do
+    while IFS= read -r service; do
         echo "    - $service"
-    done
+    done <<< "${SERVICES_BY_PROJECT[$project]}"
 done
 echo ""
 echo "=================================================="

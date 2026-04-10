@@ -6,11 +6,42 @@ set -e
 # - Set up config directories
 # - Pull latest images for all modular stacks
 # - Bring up all containers (services, torrent, plex, music, books)
+# - Wait for each stack to be healthy before starting the next
 # - Display access URLs
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_BASE="/var/lib/homelab-media-configs"
 DATA_BASE="/mnt/media"
+
+# Wait until all containers in a compose project are running (not restarting/exited).
+# Returns 0 when healthy, 1 on timeout.
+wait_for_stack() {
+    local stack=$1
+    local project_name="homelab-${stack}"
+    local compose_file="${SCRIPT_DIR}/docker-compose-${stack}.yml"
+    local timeout=${2:-120}
+    local elapsed=0
+
+    echo "  Waiting for $project_name to be ready (timeout: ${timeout}s)..."
+    while [ $elapsed -lt $timeout ]; do
+        local not_running
+        not_running=$(docker compose -p "$project_name" -f "$compose_file" ps --format json 2>/dev/null \
+            | grep -c '"State":"restarting"\|"State":"exited"\|"State":"created"' || true)
+        local total
+        total=$(docker compose -p "$project_name" -f "$compose_file" ps --format json 2>/dev/null \
+            | grep -c '"State":' || true)
+
+        if [ "$total" -gt 0 ] && [ "$not_running" -eq 0 ]; then
+            echo "  $project_name is ready."
+            return 0
+        fi
+        sleep 5
+        elapsed=$((elapsed + 5))
+    done
+
+    echo "  Warning: $project_name did not fully start within ${timeout}s — continuing anyway"
+    return 0
+}
 
 # Create necessary config directories
 mkdir -p \
@@ -68,18 +99,23 @@ echo "Pulling images for books stack..."
 # Start all containers in order (services first to create media_network)
 echo "Starting services stack (Seerr, Maintainerr, WUD, Beszel, Portainer)..."
 "$SCRIPT_DIR/stack-manage.sh" services start
+wait_for_stack services 120
 
 echo "Starting torrent stack (VPN + downloaders)..."
 "$SCRIPT_DIR/stack-manage.sh" torrent start
+wait_for_stack torrent 180
 
 echo "Starting plex stack..."
 "$SCRIPT_DIR/stack-manage.sh" plex start
+wait_for_stack plex 120
 
 echo "Starting music stack..."
 "$SCRIPT_DIR/stack-manage.sh" music start
+wait_for_stack music 90
 
 echo "Starting books stack..."
 "$SCRIPT_DIR/stack-manage.sh" books start
+wait_for_stack books 90
 
 echo ""
 echo "--- Homelab Media Stack is launching! ---"

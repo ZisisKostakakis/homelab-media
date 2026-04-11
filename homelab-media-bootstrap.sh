@@ -4,14 +4,25 @@ set -e
 # --- Homelab Media Stack Bootstrap Script ---
 # This script will:
 # - Set up config directories
-# - Pull latest images for all modular stacks
+# - Pull latest images for all modular stacks (skippable with --skip-pull)
 # - Bring up all containers (services, torrent, plex, music, books)
 # - Wait for each stack to be healthy before starting the next
 # - Display access URLs
+#
+# Usage: ./homelab-media-bootstrap.sh [--skip-pull]
+#   --skip-pull: Skip image pulls (useful when images are already up to date)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_BASE="/var/lib/homelab-media-configs"
 DATA_BASE="/mnt/media"
+SKIP_PULL=false
+
+for arg in "$@"; do
+    case $arg in
+        --skip-pull) SKIP_PULL=true ;;
+        *) echo "Unknown argument: $arg"; echo "Usage: $0 [--skip-pull]"; exit 1 ;;
+    esac
+done
 
 # Wait until all containers in a compose project are running (not restarting/exited).
 # Returns 0 when healthy, 1 on timeout.
@@ -81,20 +92,24 @@ mkdir -p \
     "$DATA_BASE/anime/movies"
 
 # Pull docker images for all stacks
-echo "Pulling images for services stack..."
-"$SCRIPT_DIR/stack-manage.sh" services pull
+if [ "$SKIP_PULL" = true ]; then
+    echo "Skipping image pulls (--skip-pull passed)."
+else
+    echo "Pulling images for services stack..."
+    "$SCRIPT_DIR/stack-manage.sh" services pull
 
-echo "Pulling images for torrent stack..."
-"$SCRIPT_DIR/stack-manage.sh" torrent pull
+    echo "Pulling images for torrent stack..."
+    "$SCRIPT_DIR/stack-manage.sh" torrent pull
 
-echo "Pulling images for plex stack..."
-"$SCRIPT_DIR/stack-manage.sh" plex pull
+    echo "Pulling images for plex stack..."
+    "$SCRIPT_DIR/stack-manage.sh" plex pull
 
-echo "Pulling images for music stack..."
-"$SCRIPT_DIR/stack-manage.sh" music pull
+    echo "Pulling images for music stack..."
+    "$SCRIPT_DIR/stack-manage.sh" music pull
 
-echo "Pulling images for books stack..."
-"$SCRIPT_DIR/stack-manage.sh" books pull
+    echo "Pulling images for books stack..."
+    "$SCRIPT_DIR/stack-manage.sh" books pull
+fi
 
 # Start all containers in order (services first to create media_network)
 echo "Starting services stack (Seerr, Maintainerr, WUD, Beszel, Portainer)..."

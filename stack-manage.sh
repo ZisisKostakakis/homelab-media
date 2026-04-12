@@ -10,6 +10,21 @@ SERVICE=$3
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Pre-flight: verify docker daemon is reachable before attempting any operation
+preflight_checks() {
+    if ! docker info > /dev/null 2>&1; then
+        echo "Error: Docker daemon is not running or not accessible"
+        echo "  Start Docker: sudo systemctl start docker"
+        exit 1
+    fi
+
+    local env_file="${SCRIPT_DIR}/.env"
+    if [ ! -f "$env_file" ]; then
+        echo "Warning: .env file not found at $env_file"
+        echo "  Copy .env.example to .env and fill in your credentials"
+    fi
+}
+
 show_usage() {
     echo "Usage: $0 <stack> <action> [service]"
     echo ""
@@ -43,6 +58,64 @@ show_usage() {
     echo "  $0 all update                    # Update all stacks"
 }
 
+# Run a docker compose command with one automatic retry on transient failure
+run_with_retry() {
+    local attempt=1
+    if "$@"; then
+        return 0
+    fi
+    echo "  Command failed (attempt 1), retrying in 5s..."
+    sleep 5
+    if "$@"; then
+        return 0
+    fi
+    echo "Error: command failed after 2 attempts: $*"
+    return 1
+}
+
+TORRENT_GLUETUN_DEPENDENTS="qbittorrent sonarr radarr readarr prowlarr bazarr flaresolverr lidarr unpackerr recyclarr"
+
+# For the torrent stack, restart gluetun first and wait for it to be healthy
+# before recreating dependents, to avoid a race condition where dependents
+# lose their network namespace and fail to come back up.
+torrent_safe_recreate() {
+    local compose_file=$1
+    local project_name=$2
+    local pull=$3  # "true" to pull images first
+
+    if [ "$pull" = "true" ]; then
+        echo "Building local images..."
+        docker compose -p "$project_name" -f "$compose_file" build
+        echo "Pulling latest images..."
+        docker compose -p "$project_name" -f "$compose_file" pull --ignore-buildable
+    fi
+
+    echo "Recreating gluetun..."
+    docker compose -p "$project_name" -f "$compose_file" up -d --force-recreate gluetun
+
+    echo "Waiting for gluetun to be healthy..."
+    local elapsed=0
+    local timeout=120
+    while [ $elapsed -lt $timeout ]; do
+        local health
+        health=$(docker inspect gluetun --format '{{.State.Health.Status}}' 2>/dev/null || echo "unknown")
+        if [ "$health" = "healthy" ]; then
+            echo "Gluetun is healthy. Recreating dependents..."
+            # Remove stale containers (including hash-named ones) for each dependent service
+            for svc in $TORRENT_GLUETUN_DEPENDENTS; do
+                docker ps -a --format "{{.ID}}" --filter "label=com.docker.compose.project=$project_name" --filter "label=com.docker.compose.service=$svc" | xargs -r docker rm -f 2>/dev/null || true
+            done
+            docker compose -p "$project_name" -f "$compose_file" up -d $TORRENT_GLUETUN_DEPENDENTS
+            return 0
+        fi
+        sleep 5
+        elapsed=$((elapsed + 5))
+    done
+
+    echo "Error: gluetun did not become healthy within ${timeout}s"
+    return 1
+}
+
 manage_stack() {
     local stack=$1
     local action=$2
@@ -63,13 +136,17 @@ manage_stack() {
 
     case $action in
         start)
-            docker compose -p "$project_name" -f "$compose_file" up -d $service
+            run_with_retry docker compose -p "$project_name" -f "$compose_file" up -d $service
             ;;
         stop)
             docker compose -p "$project_name" -f "$compose_file" stop $service
             ;;
         restart)
-            docker compose -p "$project_name" -f "$compose_file" up -d --force-recreate $service
+            if [ "$stack" = "torrent" ] && [ -z "$service" ]; then
+                torrent_safe_recreate "$compose_file" "$project_name" "false"
+            else
+                run_with_retry docker compose -p "$project_name" -f "$compose_file" up -d --force-recreate $service
+            fi
             ;;
         down)
             if [ -n "$service" ]; then
@@ -79,11 +156,15 @@ manage_stack() {
             fi
             ;;
         pull)
-            docker compose -p "$project_name" -f "$compose_file" pull $service
+            run_with_retry docker compose -p "$project_name" -f "$compose_file" pull $service
             ;;
         update)
-            docker compose -p "$project_name" -f "$compose_file" pull $service
-            docker compose -p "$project_name" -f "$compose_file" up -d --force-recreate $service
+            if [ "$stack" = "torrent" ] && [ -z "$service" ]; then
+                torrent_safe_recreate "$compose_file" "$project_name" "true"
+            else
+                run_with_retry docker compose -p "$project_name" -f "$compose_file" pull $service
+                run_with_retry docker compose -p "$project_name" -f "$compose_file" up -d --force-recreate $service
+            fi
             ;;
         logs)
             if [ -n "$service" ]; then
@@ -112,6 +193,8 @@ if [ -z "$STACK" ] || [ -z "$ACTION" ]; then
     show_usage
     exit 1
 fi
+
+preflight_checks
 
 if [ "$STACK" = "all" ]; then
     if [ -n "$SERVICE" ]; then

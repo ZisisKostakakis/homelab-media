@@ -8,19 +8,33 @@ STACK=$1
 ACTION=$2
 SERVICE=$3
 
+# Optional: set NO_COLOR=1 or pass --no-color to suppress colored output
+NO_COLOR="${NO_COLOR:-0}"
+if [ "${1:-}" = "--no-color" ]; then
+    NO_COLOR=1
+    shift
+    STACK=$1
+    ACTION=$2
+    SERVICE=$3
+fi
+
+log_info()  { [ "$NO_COLOR" = "1" ] && echo "[INFO]  $*" || echo -e "\033[0;32m[INFO]\033[0m  $*"; }
+log_warn()  { [ "$NO_COLOR" = "1" ] && echo "[WARN]  $*" || echo -e "\033[1;33m[WARN]\033[0m  $*"; }
+log_error() { [ "$NO_COLOR" = "1" ] && echo "[ERROR] $*" || echo -e "\033[0;31m[ERROR]\033[0m $*"; }
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Pre-flight: verify docker daemon is reachable before attempting any operation
 preflight_checks() {
     if ! docker info > /dev/null 2>&1; then
-        echo "Error: Docker daemon is not running or not accessible"
+        log_error "Docker daemon is not running or not accessible"
         echo "  Start Docker: sudo systemctl start docker"
         exit 1
     fi
 
     local env_file="${SCRIPT_DIR}/.env"
     if [ ! -f "$env_file" ]; then
-        echo "Warning: .env file not found at $env_file"
+        log_warn ".env file not found at $env_file"
         echo "  Copy .env.example to .env and fill in your credentials"
     fi
 }
@@ -60,16 +74,15 @@ show_usage() {
 
 # Run a docker compose command with one automatic retry on transient failure
 run_with_retry() {
-    local attempt=1
     if "$@"; then
         return 0
     fi
-    echo "  Command failed (attempt 1), retrying in 5s..."
+    log_warn "Command failed (attempt 1), retrying in 5s..."
     sleep 5
     if "$@"; then
         return 0
     fi
-    echo "Error: command failed after 2 attempts: $*"
+    log_error "Command failed after 2 attempts: $*"
     return 1
 }
 

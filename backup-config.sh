@@ -9,6 +9,10 @@ BACKUP_BASE_DIR="${BACKUP_BASE_DIR:-$SCRIPT_DIR/config-backups}"
 BACKUP_DATE=$(date +"%Y-%m-%d_%H-%M-%S")
 BACKUP_DIR="$BACKUP_BASE_DIR/$BACKUP_DATE"
 CONFIG_SOURCE="${CONFIG_SOURCE:-/var/lib/homelab-media-configs}"
+# Number of recent backups to keep (override with BACKUP_RETAIN env var)
+BACKUP_RETAIN="${BACKUP_RETAIN:-5}"
+# Maximum total size of all backups before oldest are pruned (0 = no limit)
+BACKUP_MAX_SIZE_MB="${BACKUP_MAX_SIZE_MB:-0}"
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -159,27 +163,66 @@ verify_backup() {
 
 verify_backup
 
+# Generate SHA256 checksums for all backed-up files
+echo ""
+echo -e "${GREEN}Generating checksums...${NC}"
+find "$BACKUP_DIR" -type f | sort | xargs sha256sum > "$BACKUP_DIR/checksums.sha256"
+echo -e "  → checksums.sha256 ($(wc -l < "$BACKUP_DIR/checksums.sha256") files)"
+
+# Compress the backup directory into a tar.gz archive
+echo ""
+echo -e "${GREEN}Compressing backup...${NC}"
+ARCHIVE_PATH="${BACKUP_BASE_DIR}/${BACKUP_DATE}.tar.gz"
+tar -czf "$ARCHIVE_PATH" -C "$BACKUP_BASE_DIR" "$BACKUP_DATE"
+ARCHIVE_SIZE=$(du -sh "$ARCHIVE_PATH" | cut -f1)
+echo -e "  → $(basename "$ARCHIVE_PATH") ($ARCHIVE_SIZE)"
+
+# Remove the uncompressed directory now that we have the archive
+rm -rf "$BACKUP_DIR"
+
+# Verify archive integrity
+if ! tar -tzf "$ARCHIVE_PATH" > /dev/null 2>&1; then
+    echo -e "${RED}Archive integrity check FAILED: $ARCHIVE_PATH may be corrupt.${NC}"
+    exit 1
+fi
+echo -e "${GREEN}Archive integrity check PASSED.${NC}"
+
 # Calculate backup size
-BACKUP_SIZE=$(du -sh "$BACKUP_DIR" | cut -f1)
+BACKUP_SIZE="$ARCHIVE_SIZE"
 
 echo ""
 echo -e "${GREEN}=== Backup Complete ===${NC}"
-echo -e "Location: $BACKUP_DIR"
+echo -e "Location: $ARCHIVE_PATH"
 echo -e "Size: $BACKUP_SIZE"
 echo ""
-echo -e "${YELLOW}Backup contents:${NC}"
-ls -lh "$BACKUP_DIR"
+echo -e "${YELLOW}Backup archives:${NC}"
+ls -lh "$BACKUP_BASE_DIR"/*.tar.gz 2>/dev/null || echo "  (none)"
 echo ""
 
-# Keep only the last 5 backups
-echo -e "${YELLOW}Cleaning old backups (keeping last 5)...${NC}"
-cd "$BACKUP_BASE_DIR"
-ls -t | tail -n +6 | xargs -r rm -rf
+# Keep only the last N backups (controlled by BACKUP_RETAIN)
+echo -e "${YELLOW}Cleaning old backups (keeping last $BACKUP_RETAIN)...${NC}"
+ls -t "$BACKUP_BASE_DIR"/*.tar.gz 2>/dev/null | tail -n +$((BACKUP_RETAIN + 1)) | xargs -r rm -f
 echo -e "${GREEN}Old backups cleaned.${NC}"
-echo ""
 
+# Enforce total size cap if configured
+if [ "$BACKUP_MAX_SIZE_MB" -gt 0 ]; then
+    while true; do
+        local total_mb
+        total_mb=$(du -sm "$BACKUP_BASE_DIR" 2>/dev/null | cut -f1)
+        if [ "$total_mb" -le "$BACKUP_MAX_SIZE_MB" ]; then
+            break
+        fi
+        oldest=$(ls -t "$BACKUP_BASE_DIR"/*.tar.gz 2>/dev/null | tail -1)
+        if [ -z "$oldest" ]; then
+            break
+        fi
+        echo -e "${YELLOW}  Size cap exceeded (${total_mb}MB > ${BACKUP_MAX_SIZE_MB}MB), removing: $(basename "$oldest")${NC}"
+        rm -f "$oldest"
+    done
+fi
+
+echo ""
 echo -e "${GREEN}Backup successful!${NC}"
-echo "To restore from this backup, copy contents from:"
-echo "  $BACKUP_DIR"
-echo "to:"
-echo "  /var/lib/homelab-media-configs/"
+echo "To restore from this backup:"
+echo "  tar -xzf $ARCHIVE_PATH -C $BACKUP_BASE_DIR"
+echo "  cp -r ${BACKUP_BASE_DIR}/${BACKUP_DATE}/. /var/lib/homelab-media-configs/"

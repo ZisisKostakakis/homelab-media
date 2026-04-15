@@ -2,6 +2,8 @@
 
 # Homelab Media Configuration Backup Script
 # Backs up configuration files (API keys, indexers, connections) without media data
+# Usage: ./backup-config.sh [--dry-run]
+#   --dry-run: List what would be backed up without writing any files
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -13,6 +15,15 @@ CONFIG_SOURCE="${CONFIG_SOURCE:-/var/lib/homelab-media-configs}"
 BACKUP_RETAIN="${BACKUP_RETAIN:-5}"
 # Maximum total size of all backups before oldest are pruned (0 = no limit)
 BACKUP_MAX_SIZE_MB="${BACKUP_MAX_SIZE_MB:-0}"
+DRY_RUN=false
+
+# Parse arguments
+for arg in "$@"; do
+    case $arg in
+        --dry-run) DRY_RUN=true ;;
+        *) echo "Unknown argument: $arg"; echo "Usage: $0 [--dry-run]"; exit 1 ;;
+    esac
+done
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -21,11 +32,12 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 echo -e "${GREEN}=== Homelab Media Configuration Backup ===${NC}"
+[ "$DRY_RUN" = true ] && echo -e "${YELLOW}DRY RUN — no files will be written${NC}"
 echo "Backup destination: $BACKUP_DIR"
 echo ""
 
-# Create backup directory
-mkdir -p "$BACKUP_DIR"
+# Create backup directory (skipped in dry-run)
+[ "$DRY_RUN" = false ] && mkdir -p "$BACKUP_DIR"
 
 # Function to backup service configs (excluding logs and large databases)
 backup_service() {
@@ -39,6 +51,16 @@ backup_service() {
     fi
 
     echo -e "${GREEN}Backing up $service...${NC}"
+
+    if [ "$DRY_RUN" = true ]; then
+        local file_count
+        file_count=$(find "$source" -type f \( -name '*.xml' -o -name '*.db' -o -name '*.json' -o -name '*.yml' -o -name '*.yaml' -o -name '*.conf' -o -name '*.ini' \) \
+            ! -name 'logs.db' ! -path '*/logs/*' ! -path '*/Logs/*' ! -path '*/cache/*' ! -path '*/Cache/*' ! -path '*/MediaCover/*' ! -path '*/Backups/*' \
+            ! -name '*.log' ! -name '*-shm' ! -name '*-wal' 2>/dev/null | wc -l)
+        echo -e "  [dry-run] Would back up $file_count file(s) from $source"
+        return
+    fi
+
     mkdir -p "$dest"
 
     # Copy configuration files
@@ -94,6 +116,16 @@ backup_service "suwayomi"          # Manga reader config
 # Backup docker-compose and environment files
 echo ""
 echo -e "${GREEN}Backing up Docker configuration...${NC}"
+
+if [ "$DRY_RUN" = true ]; then
+    compose_count=$(ls "$SCRIPT_DIR"/docker-compose-*.yml 2>/dev/null | wc -l)
+    echo -e "  [dry-run] Would back up $compose_count compose file(s)"
+    [ -f "$SCRIPT_DIR/.env" ] && echo -e "  [dry-run] Would back up .env"
+    echo ""
+    echo -e "${YELLOW}Dry run complete — no files were written.${NC}"
+    exit 0
+fi
+
 mkdir -p "$BACKUP_DIR/docker"
 
 for compose_file in "$SCRIPT_DIR"/docker-compose-*.yml; do

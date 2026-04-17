@@ -1,15 +1,17 @@
 #!/bin/bash
 
 # analyze-docker-logs.sh - Analyze Docker Compose logs for errors and warnings
-# Usage: ./analyze-docker-logs.sh [--since TIME] [--json]
-#   --since: Time period to analyze (e.g., 1h, 30m, 24h, 2d)
-#   --json:  Output results as newline-delimited JSON objects (one per container)
+# Usage: ./analyze-docker-logs.sh [--since TIME] [--json] [--output FILE]
+#   --since:  Time period to analyze (e.g., 1h, 30m, 24h, 2d)
+#   --json:   Output results as newline-delimited JSON objects (one per container)
+#   --output: Write output to FILE instead of stdout
 
 set -euo pipefail
 
 # Default time period
 TIME_PERIOD="24h"
 OUTPUT_JSON=false
+OUTPUT_FILE=""
 
 # Docker Compose projects to analyze (project-name:compose-file)
 declare -A COMPOSE_PROJECTS=(
@@ -31,10 +33,15 @@ while [[ $# -gt 0 ]]; do
             OUTPUT_JSON=true
             shift
             ;;
+        --output)
+            OUTPUT_FILE="$2"
+            shift 2
+            ;;
         -h|--help)
-            echo "Usage: $0 [--since TIME] [--json]"
-            echo "  --since: Time period to analyze (e.g., 1h, 30m, 24h, 48h)"
-            echo "  --json:  Output newline-delimited JSON (one object per container)"
+            echo "Usage: $0 [--since TIME] [--json] [--output FILE]"
+            echo "  --since:  Time period to analyze (e.g., 1h, 30m, 24h, 48h)"
+            echo "  --json:   Output newline-delimited JSON (one object per container)"
+            echo "  --output: Write output to FILE instead of stdout"
             echo "  Default: 24h"
             echo "  Note: Use hours (h), minutes (m), or seconds (s) only — 'd' is not supported"
             exit 0
@@ -52,6 +59,12 @@ if ! [[ "$TIME_PERIOD" =~ ^[0-9]+[hms]$ ]]; then
     echo "Error: Invalid time period '$TIME_PERIOD'"
     echo "Use a number followed by h (hours), m (minutes), or s (seconds). E.g., 48h, 30m"
     exit 1
+fi
+
+# Redirect all output to file when --output is specified
+if [ -n "$OUTPUT_FILE" ]; then
+    exec > "$OUTPUT_FILE"
+    echo "Output written to: $OUTPUT_FILE" >&2
 fi
 
 if [ "$OUTPUT_JSON" = false ]; then

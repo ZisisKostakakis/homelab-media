@@ -47,7 +47,6 @@ show_usage() {
     echo "  torrent   - VPN and download automation (Gluetun, qBit, *arr, Lidarr)"
     echo "  plex      - Media server (Plex, SuggestArr)"
     echo "  music     - Music stack (Navidrome, AudioMuse)"
-    echo "  books     - Books stack (Kavita, Suwayomi, rreading-glasses)"
     echo "  all       - All stacks"
     echo ""
     echo "Actions:"
@@ -86,7 +85,7 @@ run_with_retry() {
     return 1
 }
 
-TORRENT_GLUETUN_DEPENDENTS="qbittorrent sonarr radarr readarr prowlarr bazarr flaresolverr lidarr unpackerr recyclarr"
+TORRENT_GLUETUN_DEPENDENTS="qbittorrent sonarr radarr prowlarr bazarr flaresolverr lidarr unpackerr recyclarr"
 
 # For the torrent stack, restart gluetun first and wait for it to be healthy
 # before recreating dependents, to avoid a race condition where dependents
@@ -215,13 +214,13 @@ if [ "$STACK" = "all" ]; then
         show_usage
         exit 1
     fi
-    for s in services torrent plex music books; do
+    for s in services torrent plex music; do
         manage_stack "$s" "$ACTION" "$SERVICE" || echo "Warning: $s stack returned an error"
         echo ""
     done
 else
     case $STACK in
-        services|torrent|plex|music|books)
+        services|torrent|plex|music)
             manage_stack "$STACK" "$ACTION" "$SERVICE"
             ;;
         *)

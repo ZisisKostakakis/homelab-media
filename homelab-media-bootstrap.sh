@@ -5,7 +5,7 @@ set -e
 # This script will:
 # - Set up config directories
 # - Pull latest images for all modular stacks (skippable with --skip-pull)
-# - Bring up all containers (services, torrent, plex, music, books)
+# - Bring up all containers (services, torrent, plex, music)
 # - Wait for each stack to be healthy before starting the next
 # - Display access URLs
 #
@@ -61,7 +61,6 @@ mkdir -p \
     "$CONFIG_BASE/sonarr" \
     "$CONFIG_BASE/radarr" \
     "$CONFIG_BASE/lidarr" \
-    "$CONFIG_BASE/readarr" \
     "$CONFIG_BASE/bazarr" \
     "$CONFIG_BASE/prowlarr" \
     "$CONFIG_BASE/recyclarr" \
@@ -76,17 +75,13 @@ mkdir -p \
     "$CONFIG_BASE/wud-updates" \
     "$CONFIG_BASE/navidrome" \
     "$CONFIG_BASE/audiomuse-postgres" \
-    "$CONFIG_BASE/audiomuse-redis" \
-    "$CONFIG_BASE/kavita" \
-    "$CONFIG_BASE/suwayomi" \
-    "$CONFIG_BASE/rreading-glasses-postgres"
+    "$CONFIG_BASE/audiomuse-redis"
 
 mkdir -p \
     "$DATA_BASE/downloads" \
     "$DATA_BASE/tv" \
     "$DATA_BASE/movies" \
     "$DATA_BASE/music" \
-    "$DATA_BASE/books" \
     "$DATA_BASE/transcode" \
     "$DATA_BASE/anime/tv" \
     "$DATA_BASE/anime/movies"
@@ -107,8 +102,6 @@ else
     echo "Pulling images for music stack..."
     "$SCRIPT_DIR/stack-manage.sh" music pull
 
-    echo "Pulling images for books stack..."
-    "$SCRIPT_DIR/stack-manage.sh" books pull
 fi
 
 # Start all containers in order (services first to create media_network)
@@ -128,10 +121,6 @@ echo "Starting music stack..."
 "$SCRIPT_DIR/stack-manage.sh" music start
 wait_for_stack music 90
 
-echo "Starting books stack..."
-"$SCRIPT_DIR/stack-manage.sh" books start
-wait_for_stack books 90
-
 echo ""
 echo "--- Homelab Media Stack is launching! ---"
 echo "User-Facing Services:"
@@ -145,7 +134,6 @@ echo "Automation Services (via VPN):"
 echo "  Sonarr:       http://<your-ip>:8989"
 echo "  Radarr:       http://<your-ip>:7878"
 echo "  Lidarr:       http://<your-ip>:8686"
-echo "  Readarr:      http://<your-ip>:8282"
 echo "  Bazarr:       http://<your-ip>:6767"
 echo "  Prowlarr:     http://<your-ip>:9696"
 echo "  qBittorrent:  http://<your-ip>:8080"

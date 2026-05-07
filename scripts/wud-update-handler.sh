@@ -122,20 +122,6 @@ get_stack_and_service() {
             echo "music audiomuse-postgres"
             ;;
 
-        # Books stack
-        suwayomi)
-            echo "books suwayomi"
-            ;;
-        kavita)
-            echo "books kavita"
-            ;;
-        rreading-glasses)
-            echo "books rreading-glasses"
-            ;;
-        rreading-glasses-postgres)
-            echo "books rreading-glasses-postgres"
-            ;;
-
         *)
             log "ERROR: Unknown container name: $container_name"
             return 1

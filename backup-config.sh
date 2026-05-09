@@ -100,7 +100,6 @@ backup_service "prowlarr"          # Indexers, connections
 backup_service "sonarr"            # TV show automation, download client config
 backup_service "radarr"            # Movie automation, download client config
 backup_service "lidarr"            # Music automation, download client config
-backup_service "readarr"           # Book automation, download client config
 backup_service "bazarr"            # Subtitle downloader config
 backup_service "seerr"             # Request system config
 backup_service "maintainerr"       # Media cleanup rules
@@ -110,8 +109,6 @@ backup_service "plex"              # Plex server preferences
 backup_service "tautulli"          # Play history database
 backup_service "gluetun"           # VPN configuration
 backup_service "navidrome"         # Music server config and database
-backup_service "kavita"            # Ebook/comics reader config
-backup_service "suwayomi"          # Manga reader config
 
 # Backup docker-compose and environment files
 echo ""
@@ -162,11 +159,10 @@ This backup contains:
 - Gluetun: VPN configuration
 - Navidrome: Music server config and database
 - Kavita: Ebook/comics reader config
-- Suwayomi: Manga reader config
 - Docker: docker-compose files and environment file
 
 What is NOT included:
-- Media files (movies, TV shows, music, books)
+- Media files (movies, TV shows, music)
 - Active torrents and their data
 - Log files
 - Database logs and temporary files

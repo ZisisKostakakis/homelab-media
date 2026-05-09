@@ -87,7 +87,6 @@ All services in this stack run inside the Gluetun VPN network namespace. They co
 | **FlareSolverr** | `flaresolverr/flaresolverr` | 8191 | Cloudflare CAPTCHA bypass proxy |
 | **Unpackerr** | `golift/unpackerr` | — | RAR/ZIP archive extractor |
 | **Recyclarr** | `recyclarr/recyclarr` | — | TRaSH Guides quality profile sync |
-| **Readarr** | `linuxserver/readarr` | 8282 | Book/ebook PVR automation |
 
 ### Plex Stack (`docker-compose-plex.yml`)
 
@@ -308,15 +307,11 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 ├── seerr/              # Settings + user database
 ├── plex/               # Plex metadata + preferences
 ├── tautulli/           # Play history database
-├── readarr/            # Book automation database + config
 ├── gluetun-monitor/    # Restart log + config overrides
 ├── wud-updates/        # Update handler logs
 ├── navidrome/          # Navidrome database and config
 ├── audiomuse-postgres/ # AudioMuse PostgreSQL data
-├── audiomuse-redis/    # AudioMuse Redis data
-├── kavita/             # Kavita database and config
-├── suwayomi/           # Suwayomi database and downloads
-└── rreading-glasses-postgres/ # rreading-glasses PostgreSQL data
+└── audiomuse-redis/    # AudioMuse Redis data
 ```
 
 ---
@@ -347,9 +342,6 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 | Tautulli | `:8787` | plex | bridge | Play stats + automation |
 | Navidrome | `:4533` | music | bridge | Music streaming |
 | AudioMuse | `:8000` | music | bridge | AI music analysis UI |
-| Kavita | `:5001` | books | bridge | Ebook/comics reader |
-| Suwayomi | `:4567` | books | bridge | Manga downloader + reader |
-| rreading-glasses | `:8788` | books | bridge | Hardcover metadata proxy |
 
 ---
 
@@ -426,9 +418,6 @@ Start services in this order to avoid dependency failures:
 
 # 4. Start the music stack
 ./stack-manage.sh music start
-
-# 5. Start the books stack
-./stack-manage.sh books start
 ```
 
 ### First-Time Configuration Order
@@ -456,7 +445,7 @@ The primary operations tool. Wraps `docker compose` commands for each stack:
 ```bash
 ./stack-manage.sh <stack> <action> [service]
 
-# Stacks: services | torrent | plex | music | books | all
+# Stacks: services | torrent | plex | music | all
 # Actions: start | stop | restart | down | pull | update | logs | status | health
 ```
 

@@ -85,15 +85,14 @@ services:
     restart: unless-stopped
 
   sonarr:
-    build:
-      context: .
-      dockerfile: Dockerfile.sonarr
-    image: homelab-sonarr:latest
+    image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
     environment:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
+      - DOCKER_MODS=linuxserver/mods:universal-package-install
+      - INSTALL_PACKAGES=ffmpeg
     volumes:
       - /var/lib/homelab-media-configs/sonarr:/config
       - /mnt/media:/data

@@ -16,14 +16,44 @@ BACKUP_RETAIN="${BACKUP_RETAIN:-5}"
 # Maximum total size of all backups before oldest are pruned (0 = no limit)
 BACKUP_MAX_SIZE_MB="${BACKUP_MAX_SIZE_MB:-0}"
 DRY_RUN=false
+LIST_ONLY=false
+
+usage() {
+    cat <<EOF
+Usage: $0 [--dry-run] [--keep N] [--list]
+  --dry-run   Show what would happen without writing or deleting anything
+  --keep N    Keep only the last N backup archives (overrides BACKUP_RETAIN env)
+  --list      List existing backups and exit
+EOF
+}
 
 # Parse arguments
-for arg in "$@"; do
-    case $arg in
-        --dry-run) DRY_RUN=true ;;
-        *) echo "Unknown argument: $arg"; echo "Usage: $0 [--dry-run]"; exit 1 ;;
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --dry-run) DRY_RUN=true; shift ;;
+        --keep)
+            if ! [[ "${2:-}" =~ ^[0-9]+$ ]] || [ "${2}" -lt 1 ]; then
+                echo "Error: --keep expects a positive integer" >&2
+                exit 1
+            fi
+            BACKUP_RETAIN="$2"
+            shift 2
+            ;;
+        --list) LIST_ONLY=true; shift ;;
+        -h|--help) usage; exit 0 ;;
+        *) echo "Unknown argument: $1"; usage; exit 1 ;;
     esac
 done
+
+if [ "$LIST_ONLY" = true ]; then
+    if [ ! -d "$BACKUP_BASE_DIR" ]; then
+        echo "No backups found (directory $BACKUP_BASE_DIR does not exist)"
+        exit 0
+    fi
+    echo "Existing backups in $BACKUP_BASE_DIR:"
+    ls -lh "$BACKUP_BASE_DIR"/*.tar.gz 2>/dev/null || echo "  (none)"
+    exit 0
+fi
 
 # Colors for output
 GREEN='\033[0;32m'

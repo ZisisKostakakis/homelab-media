@@ -151,7 +151,7 @@ See the [VPN Auto-Healing diagram](./ARCHITECTURE.md#3-vpn-auto-healing-flow) fo
 
 What's Up Docker checks all container image tags daily at 06:00. When updates are found, it sends a batch push notification to ntfy.sh and triggers a webhook to the `wud-webhook` Python server for each updated container. The webhook server calls `wud-update-handler.sh`, which maps the container name to its stack, then runs `stack-manage.sh <stack> update <service>` to pull the new image and recreate the container. Success/failure notifications are sent via ntfy.sh.
 
-A daily cron job (`scripts/cron-jobs/update-all-stacks.sh`) also runs `stack-manage.sh all update` at 4:00 AM as a secondary update sweep.
+A daily cron job (`scripts/cron-jobs/update-all-stacks.sh`) also runs `bash stack-manage.sh all update` at midnight UK time (`CRON_TZ=Europe/London`, so the schedule survives BST/GMT transitions without an edit) as a secondary update sweep.
 
 See the [Container Auto-Update diagram](./ARCHITECTURE.md#4-container-auto-update-flow) for the full sequence.
 
@@ -482,7 +482,7 @@ The primary operations tool. Wraps `docker compose` commands for each stack:
 ./scripts/cron-jobs/update-all-stacks.sh
 ```
 
-The daily update job runs at 4:00 AM and calls `./stack-manage.sh all update`.
+The daily update job runs at midnight UK time (`CRON_TZ=Europe/London`) and calls `bash stack-manage.sh all update`.
 
 ### backup-config.sh
 
@@ -502,6 +502,31 @@ Scans logs across all stacks for errors and warnings:
 ```bash
 ./analyze-docker-logs.sh --since 24h
 # Reports error/warning counts per container with recent samples
+
+./analyze-docker-logs.sh --service sonarr --grep "timeout" --context 2
+# Search a single container with grep context
+
+./analyze-docker-logs.sh --level error --summary-only --json
+# Cron/dashboard-friendly output: errors only, counts only, NDJSON
+```
+
+Categories tracked: `auth`, `network`, `database`, `disk`, `permissions`. See `--help` for the full flag list.
+
+### scripts/healthcheck.sh
+
+Verifies every service defined in any `docker-compose-*.yml` is currently running. Exits non-zero on missing services — wire into cron + paging.
+
+```bash
+./scripts/healthcheck.sh           # human-readable
+./scripts/healthcheck.sh --json    # single-line JSON for dashboards
+```
+
+### scripts/disk-report.sh
+
+Reports disk usage of monitored mounts (defaults: `/mnt/media`, `/var/lib/homelab-media-configs`, `/var/lib/docker`) and exits non-zero past a configurable threshold.
+
+```bash
+./scripts/disk-report.sh --threshold 85
 ```
 
 ### Useful Docker Commands

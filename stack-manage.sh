@@ -59,6 +59,7 @@ show_usage() {
     echo "  logs      - Show logs (last 50 lines)"
     echo "  status    - Show container status"
     echo "  health    - Show running homelab container health summary"
+    echo "  summary   - Show expected/running/stopped counts (uses scripts/healthcheck.sh)"
     echo ""
     echo "Service (optional):"
     echo "  Specify a service name to manage individual services within a stack"
@@ -191,6 +192,31 @@ manage_stack() {
         health)
             echo "=== Container health for $project_name ==="
             docker ps --format "table {{.Names}}\t{{.Status}}" | grep "^${project_name}-" || echo "(no ${project_name} containers running)"
+            ;;
+        summary)
+            # Per-stack expected/running/stopped counts. Reads the compose file's
+            # top-level service keys (same parser as scripts/healthcheck.sh).
+            local expected running stopped svc
+            local services
+            services=$(awk '
+                /^services:/ { in_services=1; next }
+                in_services && /^[a-zA-Z]/ { in_services=0 }
+                in_services && /^  [a-zA-Z0-9_-]+:/ {
+                    gsub(/^  |:.*$/, "")
+                    print
+                }
+            ' "$compose_file")
+            expected=0; running=0; stopped=0
+            while IFS= read -r svc; do
+                [ -z "$svc" ] && continue
+                expected=$((expected + 1))
+                if docker ps --format '{{.Names}}' | grep -qx "$svc"; then
+                    running=$((running + 1))
+                else
+                    stopped=$((stopped + 1))
+                fi
+            done <<< "$services"
+            printf '  %-20s expected=%d  running=%d  stopped=%d\n' "$project_name" "$expected" "$running" "$stopped"
             ;;
         *)
             echo "Error: Unknown action '$action'"

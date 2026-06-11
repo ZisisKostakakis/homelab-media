@@ -32,13 +32,16 @@ logger = logging.getLogger(__name__)
 
 def qbit_session() -> requests.Session:
     session = requests.Session()
+    session.headers.update({"Referer": QBITTORRENT_URL})
     resp = session.post(
         f"{QBITTORRENT_URL}/api/v2/auth/login",
         data={"username": QBITTORRENT_USERNAME, "password": QBITTORRENT_PASSWORD},
         timeout=10,
     )
-    if resp.text != "Ok.":
-        raise RuntimeError(f"qBittorrent login failed: {resp.text}")
+    # qBittorrent 4.x returns 200 with body "Ok."; 5.x returns 204 No Content.
+    # Bad credentials return 401/403 or body "Fails."
+    if resp.status_code not in (200, 204) or resp.text.strip() == "Fails.":
+        raise RuntimeError(f"qBittorrent login failed: {resp.status_code} {resp.text}")
     return session
 
 

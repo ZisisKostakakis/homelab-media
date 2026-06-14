@@ -44,24 +44,34 @@ for compose in "$REPO_DIR"/docker-compose-*.yml; do
     [ -f "$compose" ] || continue
     stack=$(basename "$compose" .yml | sed 's/^docker-compose-//')
 
-    # Parse top-level service keys: lines matching `^  servicename:` directly
-    # under a `services:` block. Cheap and avoids a yq dependency.
-    services=$(awk '
+    # Parse services block: extract service name and container_name (if set).
+    # Outputs "service_name<TAB>container_name" lines; container_name falls
+    # back to service_name when the key is absent. Stops at the next
+    # top-level YAML key so volumes/networks are not included.
+    service_map=$(awk '
         /^services:/ { in_services=1; next }
         in_services && /^[a-zA-Z]/ { in_services=0 }
         in_services && /^  [a-zA-Z0-9_-]+:/ {
-            gsub(/^  |:.*$/, "")
-            print
+            if (cur_svc != "" && !cur_has_profile) print cur_svc "\t" (cur_cname != "" ? cur_cname : cur_svc)
+            cur_svc = $0; gsub(/^  |:.*$/, "", cur_svc)
+            cur_cname = ""; cur_has_profile = 0
+            next
         }
+        in_services && cur_svc != "" && /^    container_name:/ {
+            cur_cname = $0; gsub(/^    container_name: */, "", cur_cname)
+            next
+        }
+        in_services && cur_svc != "" && /^    profiles:/ { cur_has_profile = 1; next }
+        END { if (cur_svc != "" && !cur_has_profile) print cur_svc "\t" (cur_cname != "" ? cur_cname : cur_svc) }
     ' "$compose")
 
-    while IFS= read -r svc; do
+    while IFS=$'\t' read -r svc cname; do
         [ -z "$svc" ] && continue
         EXPECTED_TOTAL=$((EXPECTED_TOTAL + 1))
-        if ! echo "$RUNNING" | grep -qx "$svc"; then
+        if ! echo "$RUNNING" | grep -qx "$cname"; then
             MISSING+=("$stack/$svc")
         fi
-    done <<< "$services"
+    done <<< "$service_map"
 done
 
 MISSING_COUNT=${#MISSING[@]}

@@ -33,3 +33,30 @@ def severity_to_priority(severity):
     if not severity:
         return 3
     return _PRIORITY_MAP.get(str(severity).lower(), 3)
+
+
+def format_messages(payload):
+    """Turn an Alertmanager webhook payload into a list of ntfy message dicts.
+
+    Each dict has keys: title, body, priority. Malformed input yields [].
+    """
+    if not isinstance(payload, dict):
+        return []
+    alerts = payload.get("alerts") or []
+    messages = []
+    for alert in alerts:
+        labels = alert.get("labels", {}) if isinstance(alert, dict) else {}
+        annotations = alert.get("annotations", {}) if isinstance(alert, dict) else {}
+        container = labels.get("container_name", "unknown")
+        alertname = labels.get("alertname", "alert")
+        status = alert.get("status", "firing")
+        priority = severity_to_priority(labels.get("severity"))
+        prefix = "RESOLVED" if status == "resolved" else "FIRING"
+        title = f"[{prefix}] {alertname} - {container}"
+        body_parts = [
+            annotations.get("summary", ""),
+            annotations.get("description", ""),
+        ]
+        body = "\n".join(p for p in body_parts if p) or "(no details)"
+        messages.append({"title": title, "body": body, "priority": priority})
+    return messages

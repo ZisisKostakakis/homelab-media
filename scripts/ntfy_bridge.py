@@ -60,3 +60,28 @@ def format_messages(payload):
         body = "\n".join(p for p in body_parts if p) or "(no details)"
         messages.append({"title": title, "body": body, "priority": priority})
     return messages
+
+
+def send_to_ntfy(message, topic=NTFY_TOPIC, base_url=NTFY_BASE_URL):
+    """POST a single message dict to ntfy. No-ops if topic is empty.
+
+    Network failures are logged and swallowed so the alert queue never wedges.
+    """
+    if not topic:
+        logging.warning("No ntfy topic configured; dropping alert: %s", message.get("title"))
+        return
+    url = f"{base_url.rstrip('/')}/{topic}"
+    req = urllib.request.Request(
+        url,
+        data=message["body"].encode("utf-8"),
+        method="POST",
+        headers={
+            "Title": message["title"],
+            "Priority": str(message["priority"]),
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10):
+            logging.info("Sent ntfy alert: %s", message["title"])
+    except Exception as e:  # noqa: BLE001 - deliberately swallow all
+        logging.error("Failed to send ntfy alert %s: %s", message.get("title"), e)

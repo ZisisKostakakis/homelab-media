@@ -1,3 +1,5 @@
+from unittest import mock
+
 import ntfy_bridge
 
 
@@ -64,3 +66,32 @@ def test_format_messages_empty_when_no_alerts():
 
 def test_format_messages_handles_missing_alerts_key():
     assert ntfy_bridge.format_messages({}) == []
+
+
+def test_send_to_ntfy_posts_to_topic_url():
+    msg = {"title": "T", "body": "B", "priority": 4}
+    with mock.patch.object(ntfy_bridge.urllib.request, "urlopen") as m:
+        m.return_value.__enter__ = lambda s: s
+        m.return_value.__exit__ = lambda *a: False
+        ntfy_bridge.send_to_ntfy(msg, topic="mytopic", base_url="https://ntfy.sh")
+    req = m.call_args[0][0]
+    assert req.full_url == "https://ntfy.sh/mytopic"
+    assert req.data == b"B"
+    assert req.get_header("Title") == "T"
+    assert req.get_header("Priority") == "4"
+
+
+def test_send_to_ntfy_no_topic_is_noop():
+    msg = {"title": "T", "body": "B", "priority": 3}
+    with mock.patch.object(ntfy_bridge.urllib.request, "urlopen") as m:
+        ntfy_bridge.send_to_ntfy(msg, topic="", base_url="https://ntfy.sh")
+    m.assert_not_called()
+
+
+def test_send_to_ntfy_swallows_network_errors():
+    msg = {"title": "T", "body": "B", "priority": 3}
+    with mock.patch.object(
+        ntfy_bridge.urllib.request, "urlopen", side_effect=OSError("boom")
+    ):
+        # Must not raise
+        ntfy_bridge.send_to_ntfy(msg, topic="t", base_url="https://ntfy.sh")

@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import ntfy_bridge
@@ -95,3 +96,26 @@ def test_send_to_ntfy_swallows_network_errors():
     ):
         # Must not raise
         ntfy_bridge.send_to_ntfy(msg, topic="t", base_url="https://ntfy.sh")
+
+
+def test_handle_alert_body_valid_returns_200_and_sends():
+    body = json.dumps(_sample_alert()).encode("utf-8")
+    with mock.patch.object(ntfy_bridge, "send_to_ntfy") as send:
+        status, _ = ntfy_bridge.handle_alert_body(body)
+    assert status == 200
+    assert send.call_count == 1
+
+
+def test_handle_alert_body_malformed_json_returns_200_and_no_send():
+    with mock.patch.object(ntfy_bridge, "send_to_ntfy") as send:
+        status, _ = ntfy_bridge.handle_alert_body(b"not json")
+    # Return 200 so Alertmanager does not wedge its queue
+    assert status == 200
+    send.assert_not_called()
+
+
+def test_handle_alert_body_empty_returns_200():
+    with mock.patch.object(ntfy_bridge, "send_to_ntfy") as send:
+        status, _ = ntfy_bridge.handle_alert_body(b"")
+    assert status == 200
+    send.assert_not_called()

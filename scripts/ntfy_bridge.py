@@ -85,3 +85,61 @@ def send_to_ntfy(message, topic=NTFY_TOPIC, base_url=NTFY_BASE_URL):
             logging.info("Sent ntfy alert: %s", message["title"])
     except Exception as e:  # noqa: BLE001 - deliberately swallow all
         logging.error("Failed to send ntfy alert %s: %s", message.get("title"), e)
+
+
+def handle_alert_body(raw_body):
+    """Parse raw Alertmanager POST bytes and dispatch ntfy messages.
+
+    Always returns (200, ...) on parseable-or-not input so Alertmanager's queue
+    is never blocked; errors are logged.
+    """
+    if not raw_body:
+        return 200, b'{"status": "empty"}'
+    try:
+        payload = json.loads(raw_body.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        logging.error("Invalid alert JSON: %s", e)
+        return 200, b'{"status": "ignored-invalid-json"}'
+    for message in format_messages(payload):
+        send_to_ntfy(message)
+    return 200, b'{"status": "ok"}'
+
+
+class AlertHandler(BaseHTTPRequestHandler):
+    def log_message(self, fmt, *args):
+        logging.info("%s - %s", self.address_string(), fmt % args)
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length) if length else b""
+        status, body = handle_alert_body(raw)
+        self.send_response(status)
+        self.send_header("Content-type", "application/json")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):
+        if self.path == "/health":
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"status": "healthy"}')
+        else:
+            self.send_response(200)
+            self.send_header("Content-type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"ntfy-bridge - POST Alertmanager webhooks to /")
+
+
+def run():
+    server = HTTPServer((HOST, PORT), AlertHandler)
+    logging.info("Starting ntfy-bridge on %s:%s (topic=%s)", HOST, PORT, NTFY_TOPIC or "<unset>")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        logging.info("Shutting down ntfy-bridge")
+        server.shutdown()
+
+
+if __name__ == "__main__":
+    run()

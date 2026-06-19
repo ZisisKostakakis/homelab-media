@@ -42,7 +42,9 @@ def format_messages(payload):
     """
     if not isinstance(payload, dict):
         return []
-    alerts = payload.get("alerts") or []
+    alerts = payload.get("alerts")
+    if not isinstance(alerts, list):
+        return []
     messages = []
     for alert in alerts:
         labels = alert.get("labels", {}) if isinstance(alert, dict) else {}

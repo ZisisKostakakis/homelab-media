@@ -69,6 +69,11 @@ def test_format_messages_handles_missing_alerts_key():
     assert ntfy_bridge.format_messages({}) == []
 
 
+def test_format_messages_non_list_alerts_yields_empty():
+    assert ntfy_bridge.format_messages({"alerts": "oops"}) == []
+    assert ntfy_bridge.format_messages({"alerts": {"a": 1}}) == []
+
+
 def test_send_to_ntfy_posts_to_topic_url():
     msg = {"title": "T", "body": "B", "priority": 4}
     with mock.patch.object(ntfy_bridge.urllib.request, "urlopen") as m:

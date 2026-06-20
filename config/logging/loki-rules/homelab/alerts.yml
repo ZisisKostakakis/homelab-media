@@ -1,0 +1,25 @@
+groups:
+  - name: homelab-container-errors
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum by (container_name) (
+            rate({job="docker"} |~ "(?i)\\b(error|fatal|panic)\\b" [5m])
+          ) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate in {{ $labels.container_name }}"
+          description: "{{ $labels.container_name }} is logging errors at {{ printf \"%.2f\" $value }}/s over 5m."
+
+      # ContainerLogSilence: enable after observing baseline log behavior.
+      # - alert: ContainerLogSilence
+      #   expr: |
+      #     sum by (container_name) (count_over_time({job="docker"}[15m])) == 0
+      #   for: 15m
+      #   labels:
+      #     severity: warning
+      #   annotations:
+      #     summary: "{{ $labels.container_name }} has stopped logging"
+      #     description: "No log lines from {{ $labels.container_name }} for 15m."

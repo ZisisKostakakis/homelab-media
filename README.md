@@ -1,7 +1,7 @@
 # Homelab Media Stack
 
-![Stacks](https://img.shields.io/badge/stacks-4-blue)
-![Services](https://img.shields.io/badge/services-30%2B-green)
+![Stacks](https://img.shields.io/badge/stacks-5-blue)
+![Services](https://img.shields.io/badge/services-35%2B-green)
 ![VPN](https://img.shields.io/badge/VPN-ProtonVPN%20WireGuard-purple)
 ![License](https://img.shields.io/badge/license-personal-lightgrey)
 
@@ -122,6 +122,30 @@ All services in this stack run inside the Gluetun VPN network namespace. They co
 | **AudioMuse (worker)** | `neptunehub/audiomuse-ai` | — | Background AI analysis worker |
 | **audiomuse-redis** | `redis:7-alpine` | — | Task queue for AudioMuse workers |
 | **audiomuse-postgres** | `postgres:15-alpine` | — | Persistent database for AudioMuse |
+
+### Logging Stack (`docker-compose-logging.yml`)
+
+Centralized log collection, exploration, and error alerting. Promtail discovers
+every container via the Docker socket and ships logs to Loki (90-day filesystem
+retention). Grafana provides the query UI and dashboards. Loki's ruler evaluates
+error-rate rules and routes alerts through Alertmanager to ntfy.
+
+| Service | Image | Port | Role |
+|---------|-------|------|------|
+| **Loki** | `grafana/loki` | 3100 | Log store + alert ruler |
+| **Promtail** | `grafana/promtail` | — | Docker service-discovery log collector |
+| **Grafana** | `grafana/grafana` | 3001 | Log query UI + dashboards |
+| **Alertmanager** | `prom/alertmanager` | 9093 | Alert grouping/dedup → ntfy |
+| **ntfy-bridge** | `python:3-alpine` (custom) | — | Alertmanager webhook → ntfy translator |
+
+Access Grafana at `:3001` (login `admin` / `GRAFANA_ADMIN_PASSWORD`) over Tailscale.
+
+**Smoke test:**
+1. `./stack-manage.sh logging start`
+2. Open Grafana → Explore → run `{job="docker"}` — log lines should appear.
+3. Trigger an error to verify alerting end-to-end:
+   `docker run --rm --name test-logger alpine sh -c 'for i in $(seq 1 200); do echo "ERROR test $i"; done'`
+   Within ~15m the HighErrorRate rule fires → Alertmanager → ntfy notification.
 
 ---
 
@@ -549,6 +573,11 @@ docker logs -f wud-webhook
 
 # Check active Plex stream count (plex-qbit-manager state)
 docker exec tautulli cat /config/logs/plex-qbit-sessions.count
+
+# Query logs from the CLI (if logcli installed) or use Grafana Explore
+docker logs -f promtail        # confirm Promtail is scraping
+docker logs -f loki            # confirm Loki ingest/ruler
+curl -s http://localhost:3100/ready   # Loki readiness
 ```
 
 ---

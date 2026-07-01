@@ -47,6 +47,7 @@ show_usage() {
     echo "  torrent   - VPN and download automation (Gluetun, qBit, *arr, Lidarr)"
     echo "  plex      - Media server (Plex, SuggestArr)"
     echo "  music     - Music stack (Navidrome, AudioMuse)"
+    echo "  logging   - Centralized logs (Loki, Promtail, Grafana, Alertmanager)"
     echo "  all       - All stacks"
     echo ""
     echo "Actions:"
@@ -240,13 +241,13 @@ if [ "$STACK" = "all" ]; then
         show_usage
         exit 1
     fi
-    for s in services torrent plex music; do
+    for s in services torrent plex music logging; do
         manage_stack "$s" "$ACTION" "$SERVICE" || echo "Warning: $s stack returned an error"
         echo ""
     done
 else
     case $STACK in
-        services|torrent|plex|music)
+        services|torrent|plex|music|logging)
             manage_stack "$STACK" "$ACTION" "$SERVICE"
             ;;
         *)

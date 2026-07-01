@@ -60,6 +60,16 @@ graph TB
             AM_REDIS & AM_PG --- AM_FLASK & AM_WORKER
         end
 
+        subgraph LOGGING["🪵 Logging Stack"]
+            LK["Loki"]
+            PT["Promtail"]
+            GF["Grafana"]
+            AM["Alertmanager"]
+            NB["ntfy-bridge"]
+            PT --> LK --> GF
+            LK --> AM --> NB
+        end
+
         subgraph SHARED_NET["🌐 homelab_media_network (bridge)"]
         end
 
@@ -110,6 +120,7 @@ graph TB
     PLEX --> MEDIA
     NAVIDROME -->|"reads music\n(read-only)"| MEDIA
     SERVICES_STACK -.-> CONFIGS
+    PT -->|"scrapes all containers"| LK
 
     %% Network membership
     TORRENT_STACK -.-> SHARED_NET

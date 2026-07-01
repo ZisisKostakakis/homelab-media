@@ -1,0 +1,114 @@
+# Logging Stack
+# Centralized log collection and alerting.
+# Promtail (Docker SD) -> Loki (90d filesystem retention) -> Grafana (UI)
+# Loki ruler -> Alertmanager -> ntfy-bridge -> ntfy
+
+services:
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yml
+    ports:
+      - 3100:3100
+    volumes:
+      - ./config/logging/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - ./config/logging/loki-rules/homelab:/loki/rules/fake:ro
+      - /var/lib/homelab-media-configs/loki:/loki
+    environment:
+      - TZ=${TZ}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3100/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - media_network
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./config/logging/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/homelab-media-configs/promtail:/promtail
+    environment:
+      - TZ=${TZ}
+    depends_on:
+      - loki
+    networks:
+      - media_network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - 3001:3000
+    volumes:
+      - ./config/logging/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./config/logging/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - /var/lib/homelab-media-configs/grafana:/var/lib/grafana
+    environment:
+      - TZ=${TZ}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      - loki
+    networks:
+      - media_network
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: alertmanager
+    restart: unless-stopped
+    command: --config.file=/etc/alertmanager/alertmanager.yml
+    ports:
+      - 9093:9093
+    volumes:
+      - ./config/logging/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - /var/lib/homelab-media-configs/alertmanager:/alertmanager
+    environment:
+      - TZ=${TZ}
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:9093/-/healthy || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - media_network
+
+  ntfy-bridge:
+    image: python:3-alpine
+    container_name: ntfy-bridge
+    restart: unless-stopped
+    command: python3 /scripts/ntfy-bridge.py
+    volumes:
+      - ./scripts:/scripts:ro
+    environment:
+      - TZ=${TZ}
+      - LOGGING_NTFY_TOPIC=${LOGGING_NTFY_TOPIC:-${WUD_NTFY_TOPIC}}
+      - WUD_NTFY_TOPIC=${WUD_NTFY_TOPIC}
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8183/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - media_network
+
+networks:
+  media_network:
+    name: homelab_media_network
+    external: true

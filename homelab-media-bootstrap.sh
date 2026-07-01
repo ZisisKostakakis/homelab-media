@@ -75,7 +75,24 @@ mkdir -p \
     "$CONFIG_BASE/wud-updates" \
     "$CONFIG_BASE/navidrome" \
     "$CONFIG_BASE/audiomuse-postgres" \
-    "$CONFIG_BASE/audiomuse-redis"
+    "$CONFIG_BASE/audiomuse-redis" \
+    "$CONFIG_BASE/loki" \
+    "$CONFIG_BASE/promtail" \
+    "$CONFIG_BASE/grafana" \
+    "$CONFIG_BASE/alertmanager"
+
+# Logging containers run as non-root, image-specific UIDs and mkdir their
+# data on first run. If they are first created together they can inherit the
+# wrong owner (e.g. alertmanager ending up owned by loki's UID), which makes
+# alertmanager crash-loop with "mkdir data/: permission denied". Pre-own the
+# data dirs so each service can always write to its volume.
+#   loki      -> 10001 (distroless nobody)
+#   grafana   -> 472
+#   alertmanager -> 65534 (nobody)
+# promtail runs as root and needs no chown.
+chown 10001:10001 "$CONFIG_BASE/loki"
+chown 472:472 "$CONFIG_BASE/grafana"
+chown 65534:65534 "$CONFIG_BASE/alertmanager"
 
 mkdir -p \
     "$DATA_BASE/downloads" \
@@ -121,6 +138,10 @@ echo "Starting music stack..."
 "$SCRIPT_DIR/stack-manage.sh" music start
 wait_for_stack music 90
 
+echo "Starting logging stack (Loki, Promtail, Grafana, Alertmanager, ntfy-bridge)..."
+"$SCRIPT_DIR/stack-manage.sh" logging start
+wait_for_stack logging 120
+
 echo ""
 echo "--- Homelab Media Stack is launching! ---"
 echo "User-Facing Services:"
@@ -129,6 +150,7 @@ echo "  Plex:         http://<your-ip>:32400/web"
 echo "  Maintainerr:  http://<your-ip>:6246"
 echo "  Beszel:       http://<your-ip>:8090"
 echo "  Portainer:    https://<your-ip>:9443"
+echo "  Grafana:      http://<your-ip>:3001"
 echo ""
 echo "Automation Services (via VPN):"
 echo "  Sonarr:       http://<your-ip>:8989"

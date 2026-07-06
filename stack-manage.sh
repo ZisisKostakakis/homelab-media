@@ -43,7 +43,7 @@ show_usage() {
     echo "Usage: $0 <stack> <action> [service]"
     echo ""
     echo "Stacks:"
-    echo "  services  - User-facing services (Seerr, Maintainerr, WUD, etc.)"
+    echo "  services  - User-facing services (Seerr, Maintainerr, etc.)"
     echo "  torrent   - VPN and download automation (Gluetun, qBit, *arr, Lidarr)"
     echo "  plex      - Media server (Plex, SuggestArr)"
     echo "  music     - Music stack (Navidrome, AudioMuse)"

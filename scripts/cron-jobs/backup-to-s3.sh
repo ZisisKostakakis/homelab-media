@@ -81,7 +81,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# --- ntfy notification helper (matches wud-update-handler.sh convention) ---
+# --- ntfy notification helper ---
 notify() {
     local title="$1" priority="$2" tags="$3" message="$4"
     [ -z "$NTFY_TOPIC" ] && return 0

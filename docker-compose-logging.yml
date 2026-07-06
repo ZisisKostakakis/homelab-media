@@ -93,8 +93,7 @@ services:
       - ./scripts:/scripts:ro
     environment:
       - TZ=${TZ}
-      - LOGGING_NTFY_TOPIC=${LOGGING_NTFY_TOPIC:-${WUD_NTFY_TOPIC}}
-      - WUD_NTFY_TOPIC=${WUD_NTFY_TOPIC}
+      - LOGGING_NTFY_TOPIC=${LOGGING_NTFY_TOPIC}
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8183/health || exit 1"]
       interval: 30s

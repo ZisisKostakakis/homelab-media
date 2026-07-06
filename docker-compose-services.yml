@@ -59,8 +59,6 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
-    labels:
-      - "wud.watch=false"  # Exclude from WUD monitoring - s6 tag causes false positives
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80"]
       interval: 30s
@@ -107,63 +105,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-
-  whatsupdocker:
-    image: getwud/wud:latest
-    container_name: wud
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    ports:
-      - 3000:3000
-    environment:
-      # Authentication - generate hash: htpasswd -nbB admin <password> | sed 's/admin://'
-      # Set WUD_AUTH_BASIC_ADMIN_HASH in .env
-      - WUD_AUTH_BASIC_ADMIN_USER=admin
-      - WUD_AUTH_BASIC_ADMIN_HASH=${WUD_AUTH_BASIC_ADMIN_HASH}
-      # Update check schedule (daily at 6 AM)
-      - WUD_WATCHER_LOCAL_CRON=0 6 * * *
-      # Ntfy Trigger - Send notifications when container updates are available
-      # Set WUD_NTFY_TOPIC in .env to your ntfy.sh topic name
-      - WUD_TRIGGER_NTFY_HOMELAB_URL=https://ntfy.sh
-      - WUD_TRIGGER_NTFY_HOMELAB_TOPIC=${WUD_NTFY_TOPIC}
-      - WUD_TRIGGER_NTFY_HOMELAB_PRIORITY=3  # 1=min, 3=default, 5=max
-      - WUD_TRIGGER_NTFY_HOMELAB_MODE=batch  # batch = one notification for all updates
-      # Webhook Trigger - Automatically update containers via webhook
-      - WUD_TRIGGER_WEBHOOK_AUTOUPDATE_URL=http://wud-webhook:8182
-      - WUD_TRIGGER_WEBHOOK_AUTOUPDATE_METHOD=POST
-      - WUD_TRIGGER_WEBHOOK_AUTOUPDATE_MODE=simple  # simple = trigger for each container
-    healthcheck:
-      test: curl --fail http://localhost:${WUD_SERVER_PORT:-3000}/health || exit 1
-      interval: 10s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    restart: unless-stopped
-    networks:
-      - media_network
-
-  wud-webhook:
-    image: python:3.11-alpine
-    container_name: wud-webhook
-    restart: unless-stopped
-    command: /bin/sh -c "apk add --no-cache docker-cli docker-cli-compose bash curl && python3 /scripts/wud-webhook-server.py"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./scripts:/scripts:ro
-      - .:/homelab:ro  # Mount project directory for stack-manage.sh
-      - /var/lib/homelab-media-configs/wud-updates:/var/lib/homelab-media-configs/wud-updates
-    environment:
-      - TZ=${TZ}
-    ports:
-      - 8182:8182
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8182/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    networks:
-      - media_network
 
   portainer:
     container_name: portainer

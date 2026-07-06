@@ -3,8 +3,7 @@
 ntfy-bridge - Receives Alertmanager webhook POSTs and forwards them to ntfy.
 
 Runs inside a bare python:3-alpine container from a read-only mount, so it uses
-only the standard library (http.server + urllib). Mirrors the design of
-scripts/wud-webhook-server.py.
+only the standard library (http.server + urllib).
 """
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -15,8 +14,7 @@ import urllib.request
 
 HOST = "0.0.0.0"
 PORT = 8183
-# ntfy topic: prefer a dedicated logging topic, fall back to the shared WUD topic
-NTFY_TOPIC = os.environ.get("LOGGING_NTFY_TOPIC") or os.environ.get("WUD_NTFY_TOPIC", "")
+NTFY_TOPIC = os.environ.get("LOGGING_NTFY_TOPIC", "")
 NTFY_BASE_URL = os.environ.get("NTFY_BASE_URL", "https://ntfy.sh")
 
 logging.basicConfig(

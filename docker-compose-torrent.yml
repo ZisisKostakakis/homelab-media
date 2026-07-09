@@ -30,8 +30,8 @@ services:
       - HEALTH_DNS_TARGET_HOSTS=cloudflare.com,google.com
       #- HEALTH_VPN_DURATION_INITIAL=30s  # Give it more time to connect before checking, is obsolete
       
-      # Subnets
-      - FIREWALL_OUTBOUND_SUBNETS=192.168.1.0/24,172.19.0.0/16
+      # Subnets (172.18.0.0/16 = homelab_media_network bridge)
+      - FIREWALL_OUTBOUND_SUBNETS=192.168.1.0/24,172.18.0.0/16
       
       # Port Forwarding Command - Added a sleep to let qBit start
       # NOTE: We use 'sleep 10' to give qBittorrent time to initialize its Web UI
@@ -262,6 +262,59 @@ services:
       retries: 1
       start_period: 5m
     restart: unless-stopped
+
+  # Runs on the bridge network (not the VPN namespace) and reaches
+  # qBittorrent and the *arrs through gluetun's published ports.
+  cleanuparr:
+    image: ghcr.io/cleanuparr/cleanuparr:latest
+    container_name: cleanuparr
+    restart: unless-stopped
+    ports:
+      - 11011:11011
+    volumes:
+      - /var/lib/homelab-media-configs/cleanuparr:/config
+      - /mnt/media:/data
+    environment:
+      - PORT=11011
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11011/health"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+    networks:
+      - media_network
+
+  # Whisper ASR for Bazarr AI-generated subtitles. Bazarr runs inside the
+  # gluetun namespace where container DNS does not resolve, so it reaches
+  # this service via the host LAN IP and the published port 9000.
+  whisper-asr:
+    image: onerahmet/openai-whisper-asr-webservice:latest
+    container_name: whisper-asr
+    restart: unless-stopped
+    ports:
+      - 9000:9000
+    environment:
+      - ASR_MODEL=small
+      - ASR_ENGINE=faster_whisper
+      - ASR_MODEL_PATH=/data/whisper
+      - TZ=${TZ}
+    volumes:
+      - /var/lib/homelab-media-configs/whisper:/data/whisper
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/openapi.json"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 2m
+    networks:
+      - media_network
 
 #  cross-seed:
 #    image: crossseed/cross-seed:latest

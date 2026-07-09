@@ -72,6 +72,8 @@ mkdir -p \
     "$CONFIG_BASE/picard" \
     "$CONFIG_BASE/beszel" \
     "$CONFIG_BASE/gluetun-monitor" \
+    "$CONFIG_BASE/cleanuparr" \
+    "$CONFIG_BASE/whisper" \
     "$CONFIG_BASE/navidrome" \
     "$CONFIG_BASE/audiomuse-postgres" \
     "$CONFIG_BASE/audiomuse-redis" \

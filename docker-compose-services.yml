@@ -87,7 +87,7 @@ services:
     image: alpine:latest
     container_name: gluetun-monitor
     restart: unless-stopped
-    command: /bin/sh -c "apk add --no-cache docker-cli curl && /scripts/gluetun-cascade-restart.sh"
+    command: /bin/sh -c "apk add --no-cache docker-cli docker-cli-compose curl && /scripts/gluetun-cascade-restart.sh"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./scripts:/scripts:ro

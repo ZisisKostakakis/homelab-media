@@ -181,17 +181,15 @@ cascade_restart_torrent_stack() {
     log_event "INFO" "Waiting ${STACK_DOWN_DELAY}s for cleanup..."
     sleep "$STACK_DOWN_DELAY"
 
-    # Recreate all services using docker-compose (called from host via exec)
+    # Recreate all services with the compose plugin (docker-cli-compose is
+    # installed at container start). /homelab is the repo mounted read-only;
+    # --project-directory makes compose read /homelab/.env for interpolation.
     log_event "INFO" "Recreating VPN-dependent services..."
-    if docker run --rm \
-        -v /var/run/docker.sock:/var/run/docker.sock \
-        -v /homelab:/workdir \
-        -w /workdir \
-        docker/compose-bin:latest \
-        -p homelab-torrent -f docker-compose-torrent.yml up -d --no-deps qbittorrent sonarr radarr prowlarr bazarr flaresolverr lidarr unpackerr recyclarr 2>&1 | grep -vE "(Pulling|Downloaded|Network|Volume)" || true; then
+    local compose_output
+    if compose_output=$(docker compose -p homelab-torrent -f /homelab/docker-compose-torrent.yml --project-directory /homelab up -d --no-deps $services 2>&1); then
         log_event "INFO" "Services recreated successfully"
     else
-        log_event "ERROR" "Failed to recreate services"
+        log_event "ERROR" "Failed to recreate services: $compose_output"
         return 1
     fi
 

@@ -504,9 +504,12 @@ The primary operations tool. Wraps `docker compose` commands for each stack:
 
 # Register the daily stack update job (self-registers, safe to re-run)
 ./scripts/cron-jobs/update-all-stacks.sh
+
+# Register the daily S3 disaster-recovery backup job (self-registers, safe to re-run)
+./scripts/cron-jobs/backup-to-s3.sh --install
 ```
 
-The daily update job runs at midnight UK time (`CRON_TZ=Europe/London`) and calls `bash stack-manage.sh all update`.
+The daily update job runs at midnight UK time (`CRON_TZ=Europe/London`) and calls `bash stack-manage.sh all update`. The S3 backup job runs at 00:30 UK time — 30 minutes later, so it captures the post-update state.
 
 ### backup-config.sh
 
@@ -518,6 +521,87 @@ Creates a timestamped backup of all service configurations:
 ```
 
 Includes: all service configs, docker-compose files, `.env`. Excludes: media files, logs, and cache. Retains the 5 most recent backups automatically.
+
+### Disaster Recovery — off-host S3 backups
+
+`backup-config.sh` only writes to the local disk. For true disaster recovery (VM loss, disk failure), config archives are also pushed **off-host** to AWS S3, **client-side encrypted** via an rclone `crypt` remote — so the `.env` (VPN keys, API tokens) and every other config is unreadable in the bucket even if the bucket leaks.
+
+**Components:**
+
+| Script | Purpose |
+|---|---|
+| `scripts/install-rclone.sh` | Idempotent rclone installer (official static binary). |
+| `scripts/cron-jobs/backup-to-s3.sh` | Builds a fresh archive, uploads it encrypted to S3. `--install` self-registers the daily cron job; `--dry-run` previews without uploading. |
+| `scripts/restore-from-s3.sh` | Lists / downloads / decrypts / verifies a remote archive and prints the rehydration runbook. `--list`, `--archive NAME`, `--dry-run`. |
+
+**Setup (one-time, per host):**
+
+```bash
+# 1. Install rclone
+./scripts/install-rclone.sh
+
+# 2. Configure TWO rclone remotes with `rclone config`:
+#
+#    s3-dr        (type: s3, provider: AWS)
+#      region              = eu-west-2
+#      location_constraint = eu-west-2
+#      access_key_id       = <IAM user key>      # entered interactively
+#      secret_access_key   = <IAM user secret>   # never stored in the repo
+#      server_side_encryption / sse_kms_key_id = (leave empty)
+#      storage_class       = (Default — S3 lifecycle handles tiering)
+#      no_check_bucket     = true                # REQUIRED: scoped IAM has no CreateBucket
+#
+#    s3-dr-crypt  (type: crypt)
+#      remote                    = s3-dr:your-dr-bucket/torrent-vm
+#      filename_encryption       = standard
+#      directory_name_encryption = true
+#      password + salt           = <your choice — store OFF the VM>
+
+# 3. Verify the crypt round-trip
+echo test > /tmp/t.txt && rclone copy /tmp/t.txt s3-dr-crypt: \
+  && rclone cat s3-dr-crypt:t.txt \
+  && rclone ls s3-dr:your-dr-bucket/torrent-vm   # filename should be obfuscated
+rclone delete s3-dr-crypt:t.txt && rm /tmp/t.txt
+
+# 4. Register the daily backup cron job
+./scripts/cron-jobs/backup-to-s3.sh --install
+```
+
+> **If uploads fail with `AccessDenied ... s3:CreateBucket`**, the base remote is missing `no_check_bucket = true`. Fix with:
+> `rclone config update s3-dr no_check_bucket true`
+> (This is expected with a least-privilege IAM policy that grants no bucket-level create.)
+
+**AWS setup:** bucket `your-dr-bucket` (region `eu-west-2`, Block Public Access ON, versioning ON, default SSE-S3). A least-privilege IAM policy scoped to the `torrent-vm/` prefix:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Sid": "ListBucket", "Effect": "Allow",
+      "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+      "Resource": "arn:aws:s3:::your-dr-bucket" },
+    { "Sid": "ObjectRW", "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject"],
+      "Resource": "arn:aws:s3:::your-dr-bucket/torrent-vm/*" }
+  ]
+}
+```
+
+Remote **retention is owned by an S3 lifecycle rule**, not the host. The *intended* design is append-only: `s3:DeleteObject` is **not** in the policy above, so a compromised VM key cannot delete recovery points. A lifecycle rule on the `torrent-vm/` prefix transitions old archives to cheaper storage and expires noncurrent versions.
+
+> **Tip:** verify your live IAM policy is actually append-only — a policy that still grants `s3:DeleteObject` lets a compromised host key wipe your backups. Test with a throwaway object: upload it, attempt `rclone delete`, and confirm the delete is denied.
+
+> ⚠️ **The crypt password is your single point of failure.** Store it (and the salt) in a password manager **off the VM**. Lose it and the S3 backups are permanently unrecoverable — that is inherent to client-side encryption.
+
+**Restore (rebuilding the torrent VM from scratch):**
+
+```bash
+./scripts/install-rclone.sh          # then re-create the two remotes as above
+./scripts/restore-from-s3.sh --list  # see what's available
+./scripts/restore-from-s3.sh         # download + decrypt + verify newest, then follow the printed steps
+```
+
+The restore script stops at the extracted config and prints the manual `stack-manage.sh all down` → copy into `/var/lib/homelab-media-configs/` → restore compose + `.env` → `stack-manage.sh all start` sequence, so you stay in control of the final overwrite.
 
 ### analyze-docker-logs.sh
 

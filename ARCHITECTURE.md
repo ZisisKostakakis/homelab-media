@@ -340,3 +340,49 @@ graph LR
 | DNS | Cloudflare `1.1.1.1` (DoT disabled for compatibility) |
 | Port forwarding | `VPN_PORT_FORWARDING=on` — dynamic port assigned by Proton, pushed to qBit via API |
 | MTU | `WIREGUARD_MTU=1280` (conservative for tunnel stability) |
+
+## 6. Disaster-Recovery Backup Flow
+
+How config archives get an encrypted, off-host copy in S3 — and how a lost VM is rebuilt from it.
+
+```mermaid
+graph LR
+    subgraph HOST["🖥️ Torrent VM"]
+        CFG["/var/lib/homelab-media-configs\n+ docker-compose-*.yml + .env"]
+        BC["backup-config.sh\n(selects config files,\ntar.gz + checksums)"]
+        LOCAL["config-backups/\nYYYY-MM-DD_HH-MM-SS.tar.gz\n(keep last 5)"]
+        B2S["backup-to-s3.sh\n(cron 00:30 Europe/London)"]
+        RC["rclone crypt remote\ns3-dr-crypt\n(client-side encrypt)"]
+        CFG --> BC --> LOCAL --> B2S --> RC
+    end
+
+    subgraph AWS["☁️ AWS S3 (eu-west-2)"]
+        BUCKET["your-dr-bucket/torrent-vm/\nobfuscated filenames,\nencrypted contents"]
+        LC["Lifecycle rule\n(tiering + expiry —\nowns retention)"]
+        BUCKET --- LC
+    end
+
+    RC -->|"HTTPS PUT\n(scoped IAM:\nno DeleteObject)"| BUCKET
+
+    subgraph RECOVER["♻️ New VM (disaster recovery)"]
+        RES["restore-from-s3.sh\n(download → decrypt →\nverify → extract)"]
+        REHYDRATE["cp into configs/\n+ stack-manage.sh all start"]
+        RES --> REHYDRATE
+    end
+
+    BUCKET -->|"HTTPS GET\n+ crypt decrypt"| RES
+
+    style HOST fill:#1a2e1a,color:#e0ffe0,stroke:#60ff60
+    style AWS fill:#2e2e1a,color:#ffffe0,stroke:#ffff60
+    style RECOVER fill:#1a1a2e,color:#e0e0ff,stroke:#6060ff
+```
+
+**Recovery-relevant properties:**
+
+| Property | Detail |
+|------|--------|
+| Encryption | Client-side via rclone `crypt` — filenames and contents encrypted before leaving the host |
+| Secret location | AWS keys + crypt password live in `~/.config/rclone/rclone.conf`, never in the repo or the uploaded archive |
+| Retention | Owned by the S3 lifecycle rule; the host's IAM key has **no `DeleteObject`** (append-only recovery points) |
+| Schedule | Daily 00:30 UK, 30 min after the stack-update job (captures post-update state) |
+| Single point of failure | The crypt password — store off-VM; losing it makes backups unrecoverable |

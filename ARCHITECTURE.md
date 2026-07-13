@@ -28,6 +28,8 @@ graph TB
                 CROSSSEED["cross-seed\n:2468"]
                 READARR["Readarr\n:8787"]
             end
+            CLEANUPARR["Cleanuparr\n:11011 (bridge)"]
+            WHISPER["Whisper ASR\n:9000 (bridge)"]
         end
 
         subgraph PLEX_STACK["📺 Plex Stack  (homelab-plex)"]
@@ -44,8 +46,6 @@ graph TB
             PICARD["Picard\n:5800"]
             AUTOHEAL["Autoheal\n(watchdog)"]
             GLUETUN_MON["gluetun-monitor\n(cascade restarter)"]
-            WUD["What's Up Docker\n:3000"]
-            WUD_WEBHOOK["wud-webhook\n:8182"]
             PORTAINER["Portainer\n:9443"]
             BESZEL["Beszel\n:8090"]
         end
@@ -86,7 +86,6 @@ graph TB
     QB -->|"all torrent traffic\nvia VPN"| TRACKERS
     PROWLARR -->|"all indexer traffic\nvia VPN"| INDEXERS
     GLUETUN_MON -->|"push alerts"| NTFY
-    WUD -->|"push alerts"| NTFY
 
     %% VPN namespace internal (localhost)
     GLUETUN --- QB & SONARR & RADARR & PROWLARR & BAZARR & FLARE & UNPACKERR & RECYCLARR & CROSSSEED & READARR
@@ -98,6 +97,8 @@ graph TB
     UNPACKERR -->|"poll API"| SONARR & RADARR
     RECYCLARR -->|"sync profiles"| SONARR & RADARR
     CROSSSEED -->|"match torrents"| QB
+    CLEANUPARR -->|"clean queues + block malware\n(via gluetun ports)"| QB & SONARR & RADARR
+    BAZARR -->|"AI subtitles\n(via host IP)"| WHISPER
 
     %% Cross-stack connections
     SEERR -->|"requests"| SONARR & RADARR
@@ -111,9 +112,6 @@ graph TB
     %% Self-healing & monitoring
     AUTOHEAL -->|"restart unhealthy\ncontainers"| DOCKER_SOCK
     GLUETUN_MON -->|"watch events"| DOCKER_SOCK
-    WUD -->|"detect image updates"| DOCKER_SOCK
-    WUD -->|"POST webhook"| WUD_WEBHOOK
-    WUD_WEBHOOK -->|"docker pull + recreate"| DOCKER_SOCK
 
     %% Storage
     QB & SONARR & RADARR & BAZARR & UNPACKERR --> MEDIA
@@ -227,49 +225,7 @@ sequenceDiagram
 
 ---
 
-## 4. Container Auto-Update Flow
-
-How What's Up Docker (WUD) detects, notifies, and automatically applies container image updates.
-
-```mermaid
-sequenceDiagram
-    participant Registry as Container Registry<br/>(ghcr.io, dockerhub, lscr.io)
-    participant WUD as What's Up Docker<br/>(:3000)
-    participant Ntfy as ntfy.sh<br/>(batch notification)
-    participant Webhook as wud-webhook server<br/>(Python :8182)
-    participant Handler as wud-update-handler.sh
-    participant StackManage as stack-manage.sh
-    participant Docker as Docker Engine
-
-    Note over WUD: Daily cron at 06:00
-    WUD->>Registry: Check all watched container image tags
-    Registry-->>WUD: Return latest digest/tag per image
-
-    WUD->>WUD: Compare with current running tag
-
-    alt Update(s) available
-        WUD->>Ntfy: Batch notification:<br/>"N containers have updates available"
-        loop For each updated container
-            WUD->>Webhook: POST /  with container name, image, new tag
-            Webhook->>Webhook: Parse JSON payload<br/>Strip stack prefix from container name
-            Webhook->>Handler: Pipe JSON to wud-update-handler.sh (stdin)
-            Handler->>Handler: Map container → stack + service name
-            Handler->>StackManage: cd /homelab && ./stack-manage.sh <stack> update <service>
-            StackManage->>Docker: docker compose pull <service>
-            StackManage->>Docker: docker compose up -d --force-recreate <service>
-            Docker-->>Handler: Exit code 0 (success) or 1 (failure)
-            alt Update succeeded
-                Handler->>Ntfy: ✅ "Successfully updated <container>"
-            else Update failed
-                Handler->>Ntfy: ❌ "Failed to update <container> — check logs"
-            end
-        end
-    end
-```
-
----
-
-## 5. Network Topology
+## 4. Network Topology
 
 How containers are arranged across three distinct network boundaries.
 
@@ -296,15 +252,13 @@ graph LR
         GL --- QB2 & SN & RD & PW & BZ & FS & UN & RC & CS & RA
     end
 
-    subgraph BRIDGE["🌐 homelab_media_network (bridge)\nSubnet: 172.19.0.0/16"]
+    subgraph BRIDGE["🌐 homelab_media_network (bridge)\nSubnet: 172.18.0.0/16"]
         direction TB
         SEERR2["Seerr\n:5055"]
         MAINT["Maintainerr\n:6246"]
         FB["Filebrowser\n:8181"]
         AH["Autoheal"]
         GM["gluetun-monitor"]
-        WUD2["What's Up Docker\n:3000"]
-        WUDWH["wud-webhook\n:8182"]
         PORT["Portainer\n:9443"]
         BSZ["Beszel\n:8090"]
         PLEX2["Plex stack services\n(Suggestarr, Kitana,\nTautulli)"]
@@ -336,12 +290,12 @@ graph LR
 | Rule | Detail |
 |------|--------|
 | Kill switch | `FIREWALL=on` — no traffic leaves if VPN drops |
-| Allowed outbound | `FIREWALL_OUTBOUND_SUBNETS=192.168.1.0/24,172.19.0.0/16` (LAN + bridge) |
+| Allowed outbound | `FIREWALL_OUTBOUND_SUBNETS=192.168.1.0/24,172.18.0.0/16` (LAN + bridge) |
 | DNS | Cloudflare `1.1.1.1` (DoT disabled for compatibility) |
 | Port forwarding | `VPN_PORT_FORWARDING=on` — dynamic port assigned by Proton, pushed to qBit via API |
 | MTU | `WIREGUARD_MTU=1280` (conservative for tunnel stability) |
 
-## 6. Disaster-Recovery Backup Flow
+## 5. Disaster-Recovery Backup Flow
 
 How config archives get an encrypted, off-host copy in S3 — and how a lost VM is rebuilt from it.
 
@@ -351,7 +305,7 @@ graph LR
         CFG["/var/lib/homelab-media-configs\n+ docker-compose-*.yml + .env"]
         BC["backup-config.sh\n(selects config files,\ntar.gz + checksums)"]
         LOCAL["config-backups/\nYYYY-MM-DD_HH-MM-SS.tar.gz\n(keep last 5)"]
-        B2S["backup-to-s3.sh\n(cron 00:30 Europe/London)"]
+        B2S["backup-to-s3.sh\n(cron 02:00 Europe/London)"]
         RC["rclone crypt remote\ns3-dr-crypt\n(client-side encrypt)"]
         CFG --> BC --> LOCAL --> B2S --> RC
     end
@@ -384,5 +338,5 @@ graph LR
 | Encryption | Client-side via rclone `crypt` — filenames and contents encrypted before leaving the host |
 | Secret location | AWS keys + crypt password live in `~/.config/rclone/rclone.conf`, never in the repo or the uploaded archive |
 | Retention | Owned by the S3 lifecycle rule; the host's IAM key has **no `DeleteObject`** (append-only recovery points) |
-| Schedule | Daily 00:30 UK, 30 min after the stack-update job (captures post-update state) |
+| Schedule | Daily 02:00 UK, two hours after the stack-update job (captures post-update state) |
 | Single point of failure | The crypt password — store off-VM; losing it makes backups unrecoverable |

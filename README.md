@@ -7,7 +7,7 @@
 
 A fully automated, self-healing homelab media stack built on Docker Compose. Handles everything from media requests to downloading, extracting, renaming, subtitle fetching, quality management, streaming, and music — with zero manual intervention after initial setup.
 
-All download traffic routes through a WireGuard VPN with a firewall kill switch. A custom cascade-restart monitor automatically recovers all dependent services when the VPN restarts. Container image updates are detected daily and applied automatically with push notifications at each step. Plex playback automatically pauses all torrents to prioritise streaming bandwidth.
+All download traffic routes through a WireGuard VPN with a firewall kill switch. A custom cascade-restart monitor automatically recovers all dependent services when the VPN restarts. Container images are updated nightly by a cron sweep. Plex playback automatically pauses all torrents to prioritise streaming bandwidth.
 
 ---
 
@@ -47,7 +47,7 @@ graph TB
 
     subgraph SERVICES["⚙️ Services Stack"]
         SR["Seerr · Maintainerr\nFilebrowser · Picard"]
-        SH["Autoheal · gluetun-monitor\nWUD · wud-webhook"]
+        SH["Autoheal · gluetun-monitor"]
         OPS["Portainer · Beszel"]
     end
 
@@ -65,7 +65,7 @@ graph TB
     AM -->|"AI analysis"| NAV
 ```
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for all five detailed diagrams including sequence diagrams for the request pipeline, VPN auto-healing, and the container update flow.
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the detailed diagrams including sequence diagrams for the request pipeline and VPN auto-healing.
 
 ---
 
@@ -73,7 +73,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for all five detailed diagrams includin
 
 ### Torrent Stack (`docker-compose-torrent.yml`)
 
-All services in this stack run inside the Gluetun VPN network namespace. They communicate with each other via `localhost` and are completely isolated from the internet without VPN.
+Most services in this stack run inside the Gluetun VPN network namespace. They communicate with each other via `localhost` and are completely isolated from the internet without VPN. Cleanuparr and Whisper run on the bridge network instead — Cleanuparr orchestrates the download clients through Gluetun's published ports, and Whisper serves Bazarr.
 
 | Service | Image | Port | Role |
 |---------|-------|------|------|
@@ -87,6 +87,8 @@ All services in this stack run inside the Gluetun VPN network namespace. They co
 | **FlareSolverr** | `flaresolverr/flaresolverr` | 8191 | Cloudflare CAPTCHA bypass proxy |
 | **Unpackerr** | `golift/unpackerr` | — | RAR/ZIP archive extractor |
 | **Recyclarr** | `recyclarr/recyclarr` | — | TRaSH Guides quality profile sync |
+| **Cleanuparr** | `cleanuparr/cleanuparr` | 11011 | Blocks malicious files, cleans stalled/orphaned downloads (bridge network) |
+| **Whisper ASR** | `onerahmet/openai-whisper-asr-webservice` | 9000 | AI subtitle generation backend for Bazarr (bridge network) |
 
 ### Plex Stack (`docker-compose-plex.yml`)
 
@@ -108,8 +110,6 @@ All services in this stack run inside the Gluetun VPN network namespace. They co
 | **Picard** | `jlesage/musicbrainz-picard` | 5800 | MusicBrainz Picard music tagger (web UI) |
 | **Autoheal** | `willfarrell/autoheal` | — | Restarts any container failing its healthcheck |
 | **gluetun-monitor** | `alpine` (custom script) | — | Cascade restarts torrent stack when Gluetun restarts |
-| **What's Up Docker** | `getwud/wud` | 3000 | Detects container image updates daily |
-| **wud-webhook** | `python:3.11-alpine` (custom) | 8182 | HTTP webhook receiver that applies WUD updates |
 | **Portainer** | `portainer/portainer-ce` | 9443 | Docker management UI |
 | **Beszel** | `henrygd/beszel` | 8090 | System monitoring dashboard |
 
@@ -159,7 +159,7 @@ See the [Media Request Flow diagram](./ARCHITECTURE.md#2-media-request-flow) for
 
 ### 2. Subtitle Pipeline (Bazarr)
 
-Bazarr monitors Sonarr and Radarr for newly imported media and automatically searches configured subtitle providers. Subtitles are downloaded and associated with the media file without any user action.
+Bazarr monitors Sonarr and Radarr for newly imported media and automatically searches configured subtitle providers. Subtitles are downloaded and associated with the media file without any user action. When no provider has a match, the Whisper AI provider (`whisper-asr`, reached via the host IP because container DNS does not resolve inside the VPN namespace) transcribes or translates the audio track to generate subtitles locally.
 
 ### 3. Quality Management Pipeline (Recyclarr)
 
@@ -171,13 +171,9 @@ When Gluetun restarts (due to an update, crash, or VPN reconnect), all services 
 
 See the [VPN Auto-Healing diagram](./ARCHITECTURE.md#3-vpn-auto-healing-flow) for the full sequence.
 
-### 5. Container Auto-Update Pipeline (WUD + wud-webhook)
+### 5. Container Update Pipeline (nightly cron)
 
-What's Up Docker checks all container image tags daily at 06:00. When updates are found, it sends a batch push notification to ntfy.sh and triggers a webhook to the `wud-webhook` Python server for each updated container. The webhook server calls `wud-update-handler.sh`, which maps the container name to its stack, then runs `stack-manage.sh <stack> update <service>` to pull the new image and recreate the container. Success/failure notifications are sent via ntfy.sh.
-
-A daily cron job (`scripts/cron-jobs/update-all-stacks.sh`) also runs `bash stack-manage.sh all update` at midnight UK time (`CRON_TZ=Europe/London`, so the schedule survives BST/GMT transitions without an edit) as a secondary update sweep.
-
-See the [Container Auto-Update diagram](./ARCHITECTURE.md#4-container-auto-update-flow) for the full sequence.
+A daily cron job runs `bash stack-manage.sh all update` at midnight UK time (`CRON_TZ=Europe/London`, so the schedule survives BST/GMT transitions without an edit), pulling the latest images and recreating any changed containers across all stacks.
 
 ### 6. Media Cleanup Pipeline (Maintainerr)
 
@@ -208,7 +204,6 @@ Every service defines a `healthcheck` in its Compose configuration. Docker marks
 | Bazarr | `GET /api/system/status` |
 | FlareSolverr | `GET /health` |
 | Seerr | `GET /api/v1/status` |
-| wud-webhook | `GET /health` |
 
 ### Layer 2: Autoheal
 
@@ -245,8 +240,8 @@ This is the most critical self-healing layer. Gluetun creates a new network name
          ▼
 ┌─────────────────────────────────────────────┐
 │  homelab_media_network (bridge)              │
-│  172.19.0.0/16                               │
-│  Seerr · Maintainerr · WUD · Plex stack     │
+│  172.18.0.0/16                               │
+│  Seerr · Maintainerr · Plex stack           │
 │  Autoheal · gluetun-monitor                 │
 └─────────────────────────────────────────────┘
          │
@@ -263,7 +258,7 @@ This is the most critical self-healing layer. Gluetun creates a new network name
 | Setting | Value | Purpose |
 |---------|-------|---------|
 | `FIREWALL=on` | enabled | Kill switch — blocks all non-VPN traffic if tunnel drops |
-| `FIREWALL_OUTBOUND_SUBNETS` | `192.168.1.0/24,172.19.0.0/16` | Allow LAN + bridge traffic to bypass VPN |
+| `FIREWALL_OUTBOUND_SUBNETS` | `192.168.1.0/24,172.18.0.0/16` | Allow LAN + bridge traffic to bypass VPN |
 | `VPN_PORT_FORWARDING=on` | enabled | Proton assigns a port for inbound torrent connections |
 | `VPN_PORT_FORWARDING_UP_COMMAND` | `wget` to qBit API | Automatically updates qBittorrent's listening port when VPN assigns one |
 | `VPN_PORT_FORWARDING_DOWN_COMMAND` | `wget` to qBit API | Resets port to `0`/`lo` on VPN disconnect |
@@ -332,7 +327,6 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 ├── plex/               # Plex metadata + preferences
 ├── tautulli/           # Play history database
 ├── gluetun-monitor/    # Restart log + config overrides
-├── wud-updates/        # Update handler logs
 ├── navidrome/          # Navidrome database and config
 ├── audiomuse-postgres/ # AudioMuse PostgreSQL data
 └── audiomuse-redis/    # AudioMuse Redis data
@@ -348,8 +342,6 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 | Maintainerr | `:6246` | services | bridge | Media cleanup rules |
 | Filebrowser | `:8181` | services | bridge | Web file manager |
 | Picard | `:5800` | services | bridge | Music tagger web UI |
-| What's Up Docker | `:3000` | services | bridge | Update monitor UI |
-| wud-webhook | `:8182` | services | bridge | Auto-update webhook |
 | Portainer | `:9443` | services | host | Docker management |
 | Beszel | `:8090` | services | bridge | System monitoring |
 | qBittorrent | `:8080` | torrent | VPN | Torrent client |
@@ -359,6 +351,8 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 | Prowlarr | `:9696` | torrent | VPN | Indexer manager |
 | Bazarr | `:6767` | torrent | VPN | Subtitle downloader |
 | FlareSolverr | `:8191` | torrent | VPN | CF bypass |
+| Cleanuparr | `:11011` | torrent | bridge | Download hygiene + malware blocker |
+| Whisper ASR | `:9000` | torrent | bridge | AI subtitles for Bazarr |
 | Readarr | `:8282` | torrent | VPN | Book automation |
 | Plex | `:32400` | plex | host | Media server |
 | SuggestArr | `:5000` | plex | bridge | Recommendations |
@@ -509,7 +503,7 @@ The primary operations tool. Wraps `docker compose` commands for each stack:
 ./scripts/cron-jobs/backup-to-s3.sh --install
 ```
 
-The daily update job runs at midnight UK time (`CRON_TZ=Europe/London`) and calls `bash stack-manage.sh all update`. The S3 backup job runs at 00:30 UK time — 30 minutes later, so it captures the post-update state.
+The daily update job runs at midnight UK time (`CRON_TZ=Europe/London`) and calls `bash stack-manage.sh all update`. The S3 backup job runs at 02:00 UK time — two hours later, so containers have fully settled after the update before their configs are archived.
 
 ### backup-config.sh
 
@@ -652,9 +646,6 @@ docker restart gluetun
 # Check which port Proton forwarded (for qBittorrent)
 docker exec gluetun cat /tmp/gluetun/forwarded_port
 
-# View WUD update logs
-docker logs -f wud-webhook
-
 # Check active Plex stream count (plex-qbit-manager state)
 docker exec tautulli cat /config/logs/plex-qbit-sessions.count
 
@@ -677,7 +668,6 @@ curl -s http://localhost:3100/ready   # Loki readiness
 | Wrong quality profiles | Recyclarr out of sync | `./stack-manage.sh torrent restart recyclarr` — view logs to see sync result |
 | qBittorrent seeding stuck at 0 connections | VPN port not forwarded | Check `docker logs gluetun` for port forwarding messages. Proton requires port forwarding to be enabled on the server |
 | Plex can't find media | Hardlink path mismatch | Verify Sonarr/Radarr root folders are `/data/tv` and `/data/movies`. qBit must also use `/data/downloads` |
-| WUD not detecting updates | Image tagged as `latest` with digest pinning | Check WUD UI at `:3000` for watcher status. Some images (e.g. Filebrowser `s6` tag) are excluded via `wud.watch=false` label |
 | gluetun-monitor in restart loop | Gluetun instability | Monitor pauses for 1 hour after 5 restarts/hour. Check `docker logs gluetun-monitor` and ntfy for the loop detection alert |
 | Seerr not showing Plex content | Plex not connected | Re-authenticate Plex in Seerr settings. Plex token may have expired |
 | Torrents not resuming after Plex stops | Stream counter mismatch | Check `/config/logs/plex-qbit-sessions.count` in the Tautulli container. Reset to `0` if stuck |
@@ -689,7 +679,6 @@ curl -s http://localhost:3100/ready   # Loki readiness
 - **VPN kill switch** (`FIREWALL=on`) ensures no torrent traffic leaks if the VPN drops. All download services are completely offline without VPN connectivity.
 - **`.env` file** contains WireGuard private key and API keys. Never commit `.env` to a public repository. The `.gitignore` excludes it by default.
 - **API keys** are passed via environment variables from `.env`. They are not embedded in the compose files.
-- **Docker socket access** is granted to Autoheal, gluetun-monitor, wud-webhook, and Portainer. These are mounted read-only where possible (`gluetun-monitor` mounts `:ro`). Be aware that Docker socket access is effectively root on the host.
-- **WUD credentials** — the WUD web UI is protected with HTTP Basic Auth (configured in the compose file). Change the default credentials before exposing the port externally.
+- **Docker socket access** is granted to Autoheal, gluetun-monitor, and Portainer. These are mounted read-only where possible (`gluetun-monitor` mounts `:ro`). Be aware that Docker socket access is effectively root on the host.
 - **Tautulli scripts** — the scripts directory is mounted read-only into Tautulli. Credentials are injected via environment variables, not hardcoded.
 - **Rotation** — if this repo is ever made public, rotate all API keys and the WireGuard private key immediately.

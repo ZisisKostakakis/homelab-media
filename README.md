@@ -401,7 +401,7 @@ QBITTORRENT_PASSWORD=your_qbittorrent_password
 PLEX_CLAIM=claim-xxxxxxxxxxxxxxxxxxxx
 
 # Monitoring
-GLUETUN_MONITOR_NTFY_TOPIC=your_ntfy_topic
+GLUETUN_NTFY_TOPIC=your_ntfy_topic
 BESZEL_AGENT_KEY=your_beszel_ssh_public_key
 
 # AudioMuse AI Music Analysis

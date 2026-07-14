@@ -95,8 +95,21 @@ backup_service() {
 
     # Copy configuration files
     # Include: .xml, .db, .json, .yml, .yaml, .conf, .ini
-    # Exclude: logs.db, logs directory, cache, MediaCover (poster images)
+    # Exclude: logs.db, logs directory, cache, MediaCover (poster images), Plex Library
+    #
+    # Directory excludes MUST precede --include='*/' — rsync evaluates filter
+    # rules in order, so a directory exclude listed after the recurse-into-all
+    # include never gets a chance to fire (rsync already descended via the
+    # earlier rule). A trailing --exclude='*' closes the list so only the
+    # extensions above are ever copied, instead of "anything not excluded".
     rsync -av \
+        --exclude='logs/' \
+        --exclude='Logs/' \
+        --exclude='cache/' \
+        --exclude='Cache/' \
+        --exclude='MediaCover/' \
+        --exclude='Backups/' \
+        --exclude='Library/' \
         --include='*/' \
         --include='*.xml' \
         --include='*.db' \
@@ -106,17 +119,10 @@ backup_service() {
         --include='*.conf' \
         --include='*.ini' \
         --exclude='logs.db' \
-        --exclude='logs/' \
-        --exclude='Logs/' \
-        --exclude='logs/*' \
-        --exclude='cache/' \
-        --exclude='Cache/' \
-        --exclude='MediaCover/' \
-        --exclude='Backups/' \
         --exclude='*.log' \
         --exclude='*-shm' \
         --exclude='*-wal' \
-        --exclude='**/logs/' \
+        --exclude='*' \
         "$source/" "$dest/" > /dev/null 2>&1
 
     echo -e "  → Backed up to $dest"

@@ -47,12 +47,15 @@ LOG_FILE="/var/log/homelab/os-update-check.log"
 CRON_TAG="# homelab:os-update-check"
 
 # Packages deliberately held back from unattended-upgrades. Keep in sync with
-# Unattended-Upgrade::Package-Blacklist in /etc/apt/apt.conf.d/50unattended-upgrades.
+# Unattended-Upgrade::Package-Blacklist in config/host/apt/52homelab-unattended-upgrades
+# (kernel packages excluded here — those are covered by the reboot-required check instead).
 HELD_PACKAGES=(
     docker-ce
     docker-ce-cli
+    docker-ce-rootless-extras
     docker-compose-plugin
     docker-buildx-plugin
+    docker-model-plugin
     containerd.io
 )
 

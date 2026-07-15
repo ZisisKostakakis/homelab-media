@@ -1,0 +1,6 @@
+// Drives apt-daily.timer / apt-daily-upgrade.timer (both already active).
+// Update the package index and run unattended-upgrades daily; the policy for
+// what actually gets installed lives in 52homelab-unattended-upgrades.
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::AutocleanInterval "7";

@@ -196,22 +196,32 @@ manage_stack() {
             ;;
         summary)
             # Per-stack expected/running/stopped counts. Reads the compose file's
-            # top-level service keys (same parser as scripts/healthcheck.sh).
-            local expected running stopped svc
-            local services
+            # top-level service keys (same parser as scripts/healthcheck.sh): honors
+            # container_name: overrides and skips profiles:-gated (opt-in) services.
+            local expected running stopped svc cname
+            local services running_names
             services=$(awk '
                 /^services:/ { in_services=1; next }
                 in_services && /^[a-zA-Z]/ { in_services=0 }
                 in_services && /^  [a-zA-Z0-9_-]+:/ {
-                    gsub(/^  |:.*$/, "")
-                    print
+                    if (cur_svc != "" && !cur_has_profile) print cur_svc "\t" (cur_cname != "" ? cur_cname : cur_svc)
+                    cur_svc = $0; gsub(/^  |:.*$/, "", cur_svc)
+                    cur_cname = ""; cur_has_profile = 0
+                    next
                 }
+                in_services && cur_svc != "" && /^    container_name:/ {
+                    cur_cname = $0; gsub(/^    container_name: */, "", cur_cname)
+                    next
+                }
+                in_services && cur_svc != "" && /^    profiles:/ { cur_has_profile = 1; next }
+                END { if (cur_svc != "" && !cur_has_profile) print cur_svc "\t" (cur_cname != "" ? cur_cname : cur_svc) }
             ' "$compose_file")
+            running_names=$(docker ps --format '{{.Names}}' | sort -u)
             expected=0; running=0; stopped=0
-            while IFS= read -r svc; do
+            while IFS=$'\t' read -r svc cname; do
                 [ -z "$svc" ] && continue
                 expected=$((expected + 1))
-                if docker ps --format '{{.Names}}' | grep -qx "$svc"; then
+                if echo "$running_names" | grep -qx "$cname"; then
                     running=$((running + 1))
                 else
                     stopped=$((stopped + 1))

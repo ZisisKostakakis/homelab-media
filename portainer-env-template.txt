@@ -11,7 +11,6 @@ PGID=1000
 TZ=Europe/London
 TZ_MAINTAINERR=Europe/Belfast
 BESZEL_AGENT_KEY=<FROM YOUR .env FILE>
-GLUETUN_MONITOR_NTFY_TOPIC=<FROM YOUR .env FILE>
 AUDIOMUSE_PORT=8000
 
 # ----------------
@@ -28,6 +27,9 @@ SONARR_API_KEY=<FROM YOUR .env FILE>
 RADARR_API_KEY=<FROM YOUR .env FILE>
 READARR_API_KEY=<FROM YOUR .env FILE>
 QBITTORRENT_PASSWORD=<FROM YOUR .env FILE>
+# Fallback only. gluetun-monitor reads NTFY_TOPIC from its own
+# cascade-restart.conf (in /var/lib/homelab-media-configs/gluetun-monitor),
+# which takes precedence over this.
 GLUETUN_NTFY_TOPIC=<FROM YOUR .env FILE>
 READARR_PORT=8282
 

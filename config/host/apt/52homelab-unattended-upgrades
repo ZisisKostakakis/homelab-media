@@ -1,0 +1,84 @@
+// Homelab media server — unattended-upgrades policy
+//
+// Sorts after the stock 50unattended-upgrades, so these settings win. Kept as a
+// separate file so an upgrade of the unattended-upgrades package (which ships and
+// may replace 50unattended-upgrades) can never silently revert this policy.
+//
+// Policy, in short:
+//   * Security updates only     — lowest-risk patches, applied automatically.
+//   * Docker packages held back — upgrading them restarts the Docker daemon and
+//                                 bounces every container. That belongs in a
+//                                 window chosen by a human, not 06:10 on a Tuesday.
+//   * Never auto-reboot         — a media server must not vanish mid-stream.
+//                                 scripts/cron-jobs/os-update-check.sh notifies
+//                                 via ntfy when a reboot is pending; the decision
+//                                 stays with the operator.
+
+// Only Debian's security suites. Deliberately does NOT include the general
+// "stable" origin (label=Debian) — that carries non-security package changes, and
+// on a box whose whole job is running containers there is no upside to letting the
+// host drift unattended.
+//
+// The #clear is essential and not decorative: apt's `::` syntax APPENDS to a list,
+// it does not replace it. The stock 50unattended-upgrades already lists
+// label=Debian, so without clearing first this block would MERGE with it and every
+// non-security update would be pulled in too — the exact opposite of security-only.
+// Verify with: unattended-upgrade --dry-run --debug
+#clear "Unattended-Upgrade::Origins-Pattern";
+Unattended-Upgrade::Origins-Pattern {
+    "origin=Debian,codename=${distro_codename},label=Debian-Security";
+    "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
+};
+
+// Never upgrade these automatically.
+//
+// docker-ce / containerd.io / the plugins: upgrading restarts dockerd. With
+// live-restore enabled (/etc/docker/daemon.json) containers survive that restart,
+// but the daemon still drops out and anything mid-operation can be disrupted —
+// so it is done deliberately, not unattended.
+//
+// linux-image-* / linux-headers-*: a new kernel does nothing until a reboot, and
+// this box does not auto-reboot. Leaving kernels to a manual pass keeps the
+// upgrade and the reboot that activates it as one conscious action, rather than
+// accumulating installed-but-inactive kernels.
+//
+// Keep in sync with HELD_PACKAGES in scripts/cron-jobs/os-update-check.sh, which
+// reports when one of these has an upgrade waiting.
+//
+// Cleared first for the same append-vs-replace reason as Origins-Pattern above, so
+// this list is exactly what is written here.
+#clear "Unattended-Upgrade::Package-Blacklist";
+Unattended-Upgrade::Package-Blacklist {
+    "docker-ce";
+    "docker-ce-cli";
+    "docker-ce-rootless-extras";
+    "docker-compose-plugin";
+    "docker-buildx-plugin";
+    "docker-model-plugin";
+    "containerd.io";
+    "linux-image-";
+    "linux-headers-";
+};
+
+// Reclaim space from superseded dependencies, so the root disk (which also holds
+// /mnt/media) does not accumulate orphaned packages over time.
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+
+// Never reboot on our own. os-update-check.sh turns /var/run/reboot-required into
+// an ntfy nudge instead.
+Unattended-Upgrade::Automatic-Reboot "false";
+
+// Do not interrupt a download to apply on shutdown; keep behaviour predictable.
+Unattended-Upgrade::InstallOnShutdown "false";
+
+// If a package ships a modified conffile, keep the existing one rather than
+// prompting (unattended runs have no tty) or silently overwriting local config.
+Dpkg::Options {
+    "--force-confdef";
+    "--force-confold";
+};
+
+// Retry a mirror hiccup rather than failing the whole run.
+Acquire::Retries "3";

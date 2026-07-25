@@ -171,9 +171,9 @@ When Gluetun restarts (due to an update, crash, or VPN reconnect), all services 
 
 See the [VPN Auto-Healing diagram](./ARCHITECTURE.md#3-vpn-auto-healing-flow) for the full sequence.
 
-### 5. Container Update Pipeline (nightly cron)
+### 5. Container Update Pipeline (weekly cron)
 
-A daily cron job runs `bash stack-manage.sh all update` at midnight UK time (`CRON_TZ=Europe/London`, so the schedule survives BST/GMT transitions without an edit), pulling the latest images and recreating any changed containers across all stacks.
+A weekly cron job runs `bash stack-manage.sh all update` every Sunday at 6 AM UK time (`CRON_TZ=Europe/London`, so the schedule survives BST/GMT transitions without an edit), pulling the latest images and recreating any changed containers across all stacks.
 
 ### 6. Media Cleanup Pipeline (Maintainerr)
 
@@ -496,14 +496,14 @@ The primary operations tool. Wraps `docker compose` commands for each stack:
 # Install the crontab environment preamble (run once on a new host)
 ./cron-setup.sh
 
-# Register the daily stack update job (self-registers, safe to re-run)
+# Register the weekly stack update job (self-registers, safe to re-run)
 ./scripts/cron-jobs/update-all-stacks.sh
 
-# Register the daily S3 disaster-recovery backup job (self-registers, safe to re-run)
+# Register the weekly S3 disaster-recovery backup job (self-registers, safe to re-run)
 ./scripts/cron-jobs/backup-to-s3.sh --install
 ```
 
-The daily update job runs at midnight UK time (`CRON_TZ=Europe/London`) and calls `bash stack-manage.sh all update`. The S3 backup job runs at 02:00 UK time — two hours later, so containers have fully settled after the update before their configs are archived.
+The update job runs every Sunday at 06:00 UK time (`CRON_TZ=Europe/London`) and calls `bash stack-manage.sh all update`. The S3 backup job runs every Sunday at 08:00 UK time — two hours later, so containers have fully settled after the update before their configs are archived.
 
 ### backup-config.sh
 
@@ -525,7 +525,7 @@ Includes: all service configs, docker-compose files, `.env`. Excludes: media fil
 | Script | Purpose |
 |---|---|
 | `scripts/install-rclone.sh` | Idempotent rclone installer (official static binary). |
-| `scripts/cron-jobs/backup-to-s3.sh` | Builds a fresh archive, uploads it encrypted to S3. `--install` self-registers the daily cron job; `--dry-run` previews without uploading. |
+| `scripts/cron-jobs/backup-to-s3.sh` | Builds a fresh archive, uploads it encrypted to S3. `--install` self-registers the weekly cron job; `--dry-run` previews without uploading. |
 | `scripts/restore-from-s3.sh` | Lists / downloads / decrypts / verifies a remote archive and prints the rehydration runbook. `--list`, `--archive NAME`, `--dry-run`. |
 
 **Setup (one-time, per host):**
@@ -557,7 +557,7 @@ echo test > /tmp/t.txt && rclone copy /tmp/t.txt s3-dr-crypt: \
   && rclone ls s3-dr:your-dr-bucket/torrent-vm   # filename should be obfuscated
 rclone delete s3-dr-crypt:t.txt && rm /tmp/t.txt
 
-# 4. Register the daily backup cron job
+# 4. Register the weekly backup cron job
 ./scripts/cron-jobs/backup-to-s3.sh --install
 ```
 

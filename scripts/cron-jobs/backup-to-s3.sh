@@ -22,7 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # --- CONFIGURABLE (cron self-registration) ---
-CRON_SCHEDULE="0 2 * * *"        # Daily 02:00 — 2 hours after the update-all-stacks job
+CRON_SCHEDULE="0 8 * * 0"        # Sundays 08:00 — 2 hours after the update-all-stacks job
 CRON_TIMEZONE="Europe/London"    # Anchors the schedule to UK local time (BST/GMT)
 LOG_FILE="/var/log/homelab/backup-to-s3.log"
 # ---------------------------------------------

@@ -10,7 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # --- CONFIGURABLE ---
-CRON_SCHEDULE="0 0 * * *"        # Daily at midnight — interpreted in CRON_TIMEZONE below
+CRON_SCHEDULE="0 6 * * 0"        # Sundays at 6 AM — interpreted in CRON_TIMEZONE below
 CRON_TIMEZONE="Europe/London"    # Anchors the schedule to UK local time (handles BST/GMT)
 LOG_FILE="/var/log/homelab/update-all-stacks.log"
 # --------------------

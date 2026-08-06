@@ -1,5 +1,5 @@
 # User-Facing Services Stack
-# Non-VPN services: Overseerr, Maintainerr, Filebrowser
+# Non-VPN services: Seerr, Maintainerr, Filebrowser, Wizarr
 # These services don't need VPN and can run independently
 
 services:
@@ -144,6 +144,28 @@ services:
     volumes:
       - /var/lib/homelab-media-configs/picard:/config
       - /mnt/media:/storage
+    networks:
+      - media_network
+
+  wizarr:
+    image: ghcr.io/wizarrrr/wizarr:latest
+    container_name: wizarr
+    restart: unless-stopped
+    ports:
+      - 5690:5690
+    volumes:
+      - /var/lib/homelab-media-configs/wizarr:/data/database
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    healthcheck:
+      # /health redirects (302) until setup is done; curl -f only fails on 4xx/5xx
+      test: curl -fs http://localhost:5690/health || exit 1
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 1m
     networks:
       - media_network
 

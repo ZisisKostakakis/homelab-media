@@ -46,7 +46,7 @@ graph TB
     end
 
     subgraph SERVICES["⚙️ Services Stack"]
-        SR["Seerr · Maintainerr\nFilebrowser · Picard"]
+        SR["Seerr · Maintainerr · Wizarr\nFilebrowser · Picard"]
         SH["Autoheal · gluetun-monitor"]
         OPS["Portainer · Beszel"]
     end
@@ -108,10 +108,19 @@ Most services in this stack run inside the Gluetun VPN network namespace. They c
 | **Maintainerr** | `maintainerr/maintainerr` | 6246 | Automated media cleanup rules |
 | **Filebrowser** | `filebrowser/filebrowser` | 8181 | Web-based file manager for `/mnt/media` |
 | **Picard** | `jlesage/musicbrainz-picard` | 5800 | MusicBrainz Picard music tagger (web UI) |
+| **Wizarr** | `wizarrrr/wizarr` | 5690 | Self-service Plex/Seerr invite onboarding (Tailscale-only) |
 | **Autoheal** | `willfarrell/autoheal` | — | Restarts any container failing its healthcheck |
 | **gluetun-monitor** | `alpine` (custom script) | — | Cascade restarts torrent stack when Gluetun restarts |
 | **Portainer** | `portainer/portainer-ce` | 9443 | Docker management UI |
 | **Beszel** | `henrygd/beszel` | 8090 | System monitoring dashboard |
+
+#### Wizarr
+
+Wizarr (`:5690`) issues invite links that add a friend to Plex and walk them
+through Seerr. First run: create the admin account, connect Plex (URL + token),
+then set the Seerr URL in the onboarding steps. Use the Tailscale MagicDNS name
+as the base URL so invites work for tailnet friends — Wizarr is not exposed
+publicly. Smoke test: generate an invite and redeem it from a tailnet device.
 
 ### Music Stack (`docker-compose-music.yml`)
 
@@ -344,6 +353,7 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 | Picard | `:5800` | services | bridge | Music tagger web UI |
 | Portainer | `:9443` | services | host | Docker management |
 | Beszel | `:8090` | services | bridge | System monitoring |
+| Wizarr | `:5690` | services | bridge | Plex invite onboarding |
 | qBittorrent | `:8080` | torrent | VPN | Torrent client |
 | Sonarr | `:8989` | torrent | VPN | TV automation |
 | Radarr | `:7878` | torrent | VPN | Movie automation |

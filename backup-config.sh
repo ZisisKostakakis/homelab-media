@@ -272,7 +272,6 @@ echo -e "${GREEN}Old backups cleaned.${NC}"
 # Enforce total size cap if configured
 if [ "$BACKUP_MAX_SIZE_MB" -gt 0 ]; then
     while true; do
-        local total_mb
         total_mb=$(du -sm "$BACKUP_BASE_DIR" 2>/dev/null | cut -f1)
         if [ "$total_mb" -le "$BACKUP_MAX_SIZE_MB" ]; then
             break

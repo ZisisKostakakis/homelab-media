@@ -118,11 +118,6 @@ get_container_network_namespace() {
     docker inspect "$container" --format '{{.NetworkSettings.SandboxKey}}' 2>/dev/null || echo "unknown"
 }
 
-get_container_start_time() {
-    local container="$1"
-    docker inspect "$container" --format '{{.State.StartedAt}}' 2>/dev/null || echo "unknown"
-}
-
 verify_all_healthy() {
     local unhealthy_services=""
     local services="gluetun qbittorrent sonarr radarr prowlarr bazarr flaresolverr lidarr unpackerr recyclarr"
@@ -173,8 +168,8 @@ cascade_restart_torrent_stack() {
         if [ "$VERBOSE_LOGGING" = "true" ]; then
             log_event "DEBUG" "Stopping $service..."
         fi
-        docker stop "$service" 2>&1 >/dev/null || true
-        docker rm "$service" 2>&1 >/dev/null || true
+        docker stop "$service" >/dev/null 2>&1 || true
+        docker rm "$service" >/dev/null 2>&1 || true
     done
 
     # Wait for cleanup
@@ -338,11 +333,9 @@ handle_gluetun_event() {
     local current_ns
     current_ns=$(get_container_network_namespace "gluetun")
 
-    # Get current start time
-    local current_start
-    current_start=$(get_container_start_time "gluetun")
-
-    # Check if this is a real restart (namespace or start time changed)
+    # Check if this is a real restart. Docker allocates a new SandboxKey on
+    # every container start, so an unchanged namespace means a health/status
+    # event rather than a restart.
     if [ -n "$PREVIOUS_GLUETUN_NS" ] && [ "$current_ns" = "$PREVIOUS_GLUETUN_NS" ]; then
         log_event "INFO" "Namespace unchanged - not a real restart (may be health status change)"
         return 0

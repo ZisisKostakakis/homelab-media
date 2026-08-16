@@ -362,6 +362,10 @@ analyze_container() {
     if [ "$LEVEL_FILTER" = "warn" ]; then recent_errors=""; fi
     if [ "$LEVEL_FILTER" = "error" ]; then recent_warnings=""; fi
     if [ "$LEVEL_FILTER" = "info" ]; then recent_errors=""; recent_warnings=""; fi
+    local recent_info=""
+    if [ "$LEVEL_FILTER" = "info" ]; then
+        recent_info=$(echo "$clean_logs" | grep -iE "$INFO_REGEX" | tail -"$TAIL_LIMIT" || true)
+    fi
 
     if [ "$OUTPUT_JSON" = true ]; then
         local cats_json
@@ -394,6 +398,12 @@ analyze_container() {
                 echo ""
                 echo "  ${C_BOLD}Recent warnings:${C_RESET}"
                 echo "$recent_warnings" | sed 's/^/    /'
+            fi
+
+            if [ -n "$recent_info" ]; then
+                echo ""
+                echo "  ${C_BOLD}Recent info:${C_RESET}"
+                echo "$recent_info" | sed 's/^/    /'
             fi
 
             if [ "$error_count" -eq 0 ] && [ "$warn_count" -eq 0 ] && [ "$log_line_count" -gt 0 ] && [ -z "$LEVEL_FILTER" ] && [ -z "$GREP_PATTERN" ]; then

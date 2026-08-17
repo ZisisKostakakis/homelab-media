@@ -70,7 +70,8 @@ rotate_log_if_needed() {
         local size_mb=$((size_kb / 1024))
 
         if [ "$size_mb" -gt 10 ]; then
-            local backup_file="${LOG_FILE}.$(date +%Y%m%d-%H%M%S)"
+            local backup_file
+            backup_file="${LOG_FILE}.$(date +%Y%m%d-%H%M%S)"
             mv "$LOG_FILE" "$backup_file"
             gzip "$backup_file" &
             log_event "INFO" "Log rotated to $backup_file.gz"

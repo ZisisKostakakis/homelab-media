@@ -155,7 +155,7 @@ if [ "$OUTPUT_JSON" = false ]; then
     [ -n "$GREP_PATTERN" ]   && echo "Grep pattern:   $GREP_PATTERN (context=$CONTEXT_LINES)"
     [ -n "$LEVEL_FILTER" ]   && echo "Level filter:   $LEVEL_FILTER"
     [ "$SUMMARY_ONLY" = true ] && echo "Mode:           summary-only"
-    echo "Projects:       ${!COMPOSE_PROJECTS[@]}"
+    echo "Projects:       ${!COMPOSE_PROJECTS[*]}"
     echo "=================================================="
     echo ""
 fi

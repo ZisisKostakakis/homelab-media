@@ -16,7 +16,11 @@ JSON=false
 # Mount points to monitor. Override with HOMELAB_DISK_MOUNTS env var
 # (space-separated list) to track additional paths.
 DEFAULT_MOUNTS=(/mnt/media /var/lib/homelab-media-configs /var/lib/docker)
-MOUNTS=(${HOMELAB_DISK_MOUNTS:-${DEFAULT_MOUNTS[@]}})
+if [ -n "${HOMELAB_DISK_MOUNTS:-}" ]; then
+    read -ra MOUNTS <<< "$HOMELAB_DISK_MOUNTS"
+else
+    MOUNTS=("${DEFAULT_MOUNTS[@]}")
+fi
 
 while [[ $# -gt 0 ]]; do
     case $1 in

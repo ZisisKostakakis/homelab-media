@@ -19,3 +19,11 @@ jobs:
             docker compose -f "$f" config -q
             echo "::endgroup::"
           done
+
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: git ls-files -z '*.sh' | xargs -0 shellcheck --severity=warning

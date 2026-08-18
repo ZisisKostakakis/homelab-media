@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC3043  # runs under busybox ash (alpine), which supports local
 # Gluetun Cascade Restart Monitor
 # Automatically restarts VPN-dependent services when Gluetun restarts
 

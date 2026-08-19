@@ -6,11 +6,11 @@ Runs inside a bare python:3-alpine container from a read-only mount, so it uses
 only the standard library (http.server + urllib).
 """
 
-from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import logging
 import os
 import urllib.request
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 HOST = "0.0.0.0"
 PORT = 8183

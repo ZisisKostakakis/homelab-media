@@ -14,6 +14,7 @@ import fcntl
 import logging
 import os
 import sys
+
 import requests
 
 QBITTORRENT_URL      = os.getenv("QBITTORRENT_URL", "http://localhost:8080")

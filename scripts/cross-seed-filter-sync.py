@@ -9,13 +9,12 @@ Author: Generated for homelab-media stack
 Date: 2025-12-15
 """
 
-import os
-import requests
-import re
 import logging
+import os
+import re
 import sys
-from typing import Set, Dict, List
-from datetime import datetime
+
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -51,7 +50,7 @@ class APIError(Exception):
     pass
 
 
-def get_radarr_managed_hashes() -> Set[str]:
+def get_radarr_managed_hashes() -> set[str]:
     """
     Get info hashes of all torrents for movies currently in Radarr.
 
@@ -96,7 +95,7 @@ def get_radarr_managed_hashes() -> Set[str]:
         raise APIError(f"Radarr API error: {e}")
 
 
-def get_sonarr_managed_hashes() -> Set[str]:
+def get_sonarr_managed_hashes() -> set[str]:
     """
     Get info hashes of all torrents for series currently in Sonarr.
 
@@ -140,7 +139,7 @@ def get_sonarr_managed_hashes() -> Set[str]:
         raise APIError(f"Sonarr API error: {e}")
 
 
-def get_qbittorrent_torrents() -> Dict[str, Dict]:
+def get_qbittorrent_torrents() -> dict[str, dict]:
     """
     Get all torrents from qBittorrent.
 
@@ -185,7 +184,7 @@ def get_qbittorrent_torrents() -> Dict[str, Dict]:
         raise APIError(f"qBittorrent API error: {e}")
 
 
-def calculate_blocklist(all_torrents: Dict[str, Dict], managed_hashes: Set[str]) -> List[str]:
+def calculate_blocklist(all_torrents: dict[str, dict], managed_hashes: set[str]) -> list[str]:
     """
     Calculate which torrents should be blocked from cross-seed searches.
 
@@ -212,7 +211,7 @@ def calculate_blocklist(all_torrents: Dict[str, Dict], managed_hashes: Set[str])
     return blocklist
 
 
-def update_config_js(blocklist: List[str]) -> bool:
+def update_config_js(blocklist: list[str]) -> bool:
     """
     Update cross-seed config.js with new blockList.
 
@@ -224,7 +223,7 @@ def update_config_js(blocklist: List[str]) -> bool:
     """
     try:
         # Read current config
-        with open(CROSS_SEED_CONFIG_PATH, 'r') as f:
+        with open(CROSS_SEED_CONFIG_PATH) as f:
             config_content = f.read()
 
         # Format blocklist as JavaScript array

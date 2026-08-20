@@ -92,7 +92,7 @@ def get_radarr_managed_hashes() -> set[str]:
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Error querying Radarr API: {e}")
-        raise APIError(f"Radarr API error: {e}")
+        raise APIError(f"Radarr API error: {e}") from e
 
 
 def get_sonarr_managed_hashes() -> set[str]:
@@ -136,7 +136,7 @@ def get_sonarr_managed_hashes() -> set[str]:
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Error querying Sonarr API: {e}")
-        raise APIError(f"Sonarr API error: {e}")
+        raise APIError(f"Sonarr API error: {e}") from e
 
 
 def get_qbittorrent_torrents() -> dict[str, dict]:
@@ -181,7 +181,7 @@ def get_qbittorrent_torrents() -> dict[str, dict]:
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Error querying qBittorrent API: {e}")
-        raise APIError(f"qBittorrent API error: {e}")
+        raise APIError(f"qBittorrent API error: {e}") from e
 
 
 def calculate_blocklist(all_torrents: dict[str, dict], managed_hashes: set[str]) -> list[str]:

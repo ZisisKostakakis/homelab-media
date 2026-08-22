@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Runtime entrypoint. Imports the testable ntfy_bridge module and runs it."""
+
 import os
 import sys
 

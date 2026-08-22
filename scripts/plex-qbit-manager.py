@@ -17,11 +17,11 @@ import sys
 
 import requests
 
-QBITTORRENT_URL      = os.getenv("QBITTORRENT_URL", "http://localhost:8080")
+QBITTORRENT_URL = os.getenv("QBITTORRENT_URL", "http://localhost:8080")
 QBITTORRENT_USERNAME = os.getenv("QBITTORRENT_USERNAME", "admin")
 QBITTORRENT_PASSWORD = os.getenv("QBITTORRENT_PASSWORD", "")
-LOG_FILE             = os.getenv("PLEX_QBIT_LOG", "/config/logs/plex-qbit-manager.log")
-SESSIONS_FILE        = os.getenv("PLEX_QBIT_SESSIONS", "/config/logs/plex-qbit-sessions.count")
+LOG_FILE = os.getenv("PLEX_QBIT_LOG", "/config/logs/plex-qbit-manager.log")
+SESSIONS_FILE = os.getenv("PLEX_QBIT_SESSIONS", "/config/logs/plex-qbit-sessions.count")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,8 +49,9 @@ def qbit_session() -> requests.Session:
 def pause_all(session: requests.Session) -> None:
     # /pause works on qBittorrent 4.x; /stop on 5.x — try both, ignore 404
     for endpoint in ("pause", "stop"):
-        r = session.post(f"{QBITTORRENT_URL}/api/v2/torrents/{endpoint}",
-                         data={"hashes": "all"}, timeout=10)
+        r = session.post(
+            f"{QBITTORRENT_URL}/api/v2/torrents/{endpoint}", data={"hashes": "all"}, timeout=10
+        )
         if r.ok:
             break
     logger.info("Paused all torrents (Plex playback started)")
@@ -58,8 +59,9 @@ def pause_all(session: requests.Session) -> None:
 
 def resume_all(session: requests.Session) -> None:
     for endpoint in ("resume", "start"):
-        r = session.post(f"{QBITTORRENT_URL}/api/v2/torrents/{endpoint}",
-                         data={"hashes": "all"}, timeout=10)
+        r = session.post(
+            f"{QBITTORRENT_URL}/api/v2/torrents/{endpoint}", data={"hashes": "all"}, timeout=10
+        )
         if r.ok:
             break
     logger.info("Resumed all torrents (Plex playback stopped)")
@@ -79,7 +81,9 @@ def main() -> None:
 
             if args.action == "pause":
                 count += 1
-                f.seek(0); f.truncate(); f.write(str(count))
+                f.seek(0)
+                f.truncate()
+                f.write(str(count))
                 logger.info(f"Active streams: {count}")
                 if count == 1:
                     pause_all(qbit_session())
@@ -87,7 +91,9 @@ def main() -> None:
                     logger.info(f"Torrents already paused ({count} active streams)")
             else:
                 count = max(0, count - 1)
-                f.seek(0); f.truncate(); f.write(str(count))
+                f.seek(0)
+                f.truncate()
+                f.write(str(count))
                 logger.info(f"Active streams: {count}")
                 if count == 0:
                     resume_all(qbit_session())

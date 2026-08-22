@@ -96,9 +96,7 @@ def test_send_to_ntfy_no_topic_is_noop():
 
 def test_send_to_ntfy_swallows_network_errors():
     msg = {"title": "T", "body": "B", "priority": 3}
-    with mock.patch.object(
-        ntfy_bridge.urllib.request, "urlopen", side_effect=OSError("boom")
-    ):
+    with mock.patch.object(ntfy_bridge.urllib.request, "urlopen", side_effect=OSError("boom")):
         # Must not raise
         ntfy_bridge.send_to_ntfy(msg, topic="t", base_url="https://ntfy.sh")
 

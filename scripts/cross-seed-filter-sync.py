@@ -36,17 +36,18 @@ CROSS_SEED_CONTAINER_NAME = "cross-seed"
 # Logging setup
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler('/var/log/cross-seed-filter.log'),
-        logging.StreamHandler(sys.stdout)
-    ]
+        logging.FileHandler("/var/log/cross-seed-filter.log"),
+        logging.StreamHandler(sys.stdout),
+    ],
 )
 logger = logging.getLogger(__name__)
 
 
 class APIError(Exception):
     """Custom exception for API errors"""
+
     pass
 
 
@@ -60,9 +61,7 @@ def get_radarr_managed_hashes() -> set[str]:
     try:
         # Get all movies
         movies_response = requests.get(
-            f"{RADARR_URL}/api/v3/movie",
-            headers={"X-Api-Key": RADARR_API_KEY},
-            timeout=30
+            f"{RADARR_URL}/api/v3/movie", headers={"X-Api-Key": RADARR_API_KEY}, timeout=30
         )
         movies_response.raise_for_status()
         movies = movies_response.json()
@@ -73,7 +72,7 @@ def get_radarr_managed_hashes() -> set[str]:
             f"{RADARR_URL}/api/v3/history",
             params={"pageSize": 10000, "sortKey": "date", "sortDirection": "descending"},
             headers={"X-Api-Key": RADARR_API_KEY},
-            timeout=30
+            timeout=30,
         )
         history_response.raise_for_status()
         history_data = history_response.json()
@@ -105,9 +104,7 @@ def get_sonarr_managed_hashes() -> set[str]:
     try:
         # Get all series
         series_response = requests.get(
-            f"{SONARR_URL}/api/v3/series",
-            headers={"X-Api-Key": SONARR_API_KEY},
-            timeout=30
+            f"{SONARR_URL}/api/v3/series", headers={"X-Api-Key": SONARR_API_KEY}, timeout=30
         )
         series_response.raise_for_status()
         series = series_response.json()
@@ -118,7 +115,7 @@ def get_sonarr_managed_hashes() -> set[str]:
             f"{SONARR_URL}/api/v3/history",
             params={"pageSize": 10000, "sortKey": "date", "sortDirection": "descending"},
             headers={"X-Api-Key": SONARR_API_KEY},
-            timeout=30
+            timeout=30,
         )
         history_response.raise_for_status()
         history_data = history_response.json()
@@ -152,17 +149,14 @@ def get_qbittorrent_torrents() -> dict[str, dict]:
         login_response = session.post(
             f"{QBITTORRENT_URL}/api/v2/auth/login",
             data={"username": QBITTORRENT_USERNAME, "password": QBITTORRENT_PASSWORD},
-            timeout=10
+            timeout=10,
         )
 
         if login_response.text != "Ok.":
             raise APIError("qBittorrent login failed")
 
         # Get all torrents
-        torrents_response = session.get(
-            f"{QBITTORRENT_URL}/api/v2/torrents/info",
-            timeout=30
-        )
+        torrents_response = session.get(f"{QBITTORRENT_URL}/api/v2/torrents/info", timeout=30)
         torrents_response.raise_for_status()
         torrents = torrents_response.json()
 
@@ -173,7 +167,7 @@ def get_qbittorrent_torrents() -> dict[str, dict]:
                 "name": torrent["name"],
                 "category": torrent.get("category", ""),
                 "state": torrent.get("state", ""),
-                "ratio": torrent.get("ratio", 0)
+                "ratio": torrent.get("ratio", 0),
             }
 
         logger.info(f"Found {len(torrent_dict)} torrents in qBittorrent")
@@ -228,14 +222,16 @@ def update_config_js(blocklist: list[str]) -> bool:
 
         # Format blocklist as JavaScript array
         if blocklist:
-            blocklist_str = "[\n        " + ",\n        ".join(f'"{item}"' for item in blocklist) + "\n    ]"
+            blocklist_str = (
+                "[\n        " + ",\n        ".join(f'"{item}"' for item in blocklist) + "\n    ]"
+            )
         else:
             blocklist_str = "[]"
 
         # Replace blockList array using regex
         # Match: blockList: [...],
-        pattern = r'blockList:\s*\[[^\]]*\]'
-        replacement = f'blockList: {blocklist_str}'
+        pattern = r"blockList:\s*\[[^\]]*\]"
+        replacement = f"blockList: {blocklist_str}"
 
         new_content = re.sub(pattern, replacement, config_content, count=1)
 
@@ -244,7 +240,7 @@ def update_config_js(blocklist: list[str]) -> bool:
             return False
 
         # Write back
-        with open(CROSS_SEED_CONFIG_PATH, 'w') as f:
+        with open(CROSS_SEED_CONFIG_PATH, "w") as f:
             f.write(new_content)
 
         logger.info(f"Updated config.js with {len(blocklist)} blocked hashes")
@@ -264,11 +260,12 @@ def restart_cross_seed() -> bool:
     """
     try:
         import subprocess
+
         result = subprocess.run(
             ["docker", "restart", CROSS_SEED_CONTAINER_NAME],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
         )
 
         if result.returncode == 0:

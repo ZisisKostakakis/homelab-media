@@ -36,3 +36,12 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uvx ruff check .
       - run: uvx ruff format --check .
+
+  pytest:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - run: uv run --frozen pytest -q

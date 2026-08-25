@@ -23,12 +23,36 @@ QBITTORRENT_PASSWORD = os.getenv("QBITTORRENT_PASSWORD", "")
 LOG_FILE = os.getenv("PLEX_QBIT_LOG", "/config/logs/plex-qbit-manager.log")
 SESSIONS_FILE = os.getenv("PLEX_QBIT_SESSIONS", "/config/logs/plex-qbit-sessions.count")
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-    handlers=[logging.FileHandler(LOG_FILE), logging.StreamHandler(sys.stdout)],
-)
 logger = logging.getLogger(__name__)
+
+
+def setup_logging() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        handlers=[logging.FileHandler(LOG_FILE), logging.StreamHandler(sys.stdout)],
+    )
+
+
+def parse_count(raw: str) -> int:
+    """Parse the stored stream count; empty or corrupt content counts as 0."""
+    try:
+        return max(0, int(raw.strip()))
+    except ValueError:
+        return 0
+
+
+def next_session_count(count: int, action: str) -> tuple[int, str | None]:
+    """Return the new active-stream count and the qBittorrent action to take.
+
+    Torrents are paused on the first stream and resumed only when the last
+    stream ends; in between the count changes but nothing is sent.
+    """
+    if action == "pause":
+        count += 1
+        return count, "pause" if count == 1 else None
+    count = max(0, count - 1)
+    return count, "resume" if count == 0 else None
 
 
 def qbit_session() -> requests.Session:
@@ -71,34 +95,26 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--action", choices=["pause", "resume"], required=True)
     args = parser.parse_args()
+    setup_logging()
 
     try:
         with open(SESSIONS_FILE, "a+") as f:
             fcntl.flock(f, fcntl.LOCK_EX)
             f.seek(0)
-            data = f.read().strip()
-            count = int(data) if data else 0
+            count, todo = next_session_count(parse_count(f.read()), args.action)
+            f.seek(0)
+            f.truncate()
+            f.write(str(count))
+            logger.info(f"Active streams: {count}")
 
-            if args.action == "pause":
-                count += 1
-                f.seek(0)
-                f.truncate()
-                f.write(str(count))
-                logger.info(f"Active streams: {count}")
-                if count == 1:
-                    pause_all(qbit_session())
-                else:
-                    logger.info(f"Torrents already paused ({count} active streams)")
+            if todo == "pause":
+                pause_all(qbit_session())
+            elif todo == "resume":
+                resume_all(qbit_session())
+            elif args.action == "pause":
+                logger.info(f"Torrents already paused ({count} active streams)")
             else:
-                count = max(0, count - 1)
-                f.seek(0)
-                f.truncate()
-                f.write(str(count))
-                logger.info(f"Active streams: {count}")
-                if count == 0:
-                    resume_all(qbit_session())
-                else:
-                    logger.info(f"Keeping torrents paused ({count} active streams remaining)")
+                logger.info(f"Keeping torrents paused ({count} active streams remaining)")
 
     except Exception as e:
         logger.error(f"Failed to {args.action} torrents: {e}")

@@ -70,24 +70,30 @@ def qbit_session() -> requests.Session:
     return session
 
 
-def pause_all(session: requests.Session) -> None:
-    # /pause works on qBittorrent 4.x; /stop on 5.x — try both, ignore 404
-    for endpoint in ("pause", "stop"):
+def post_first_ok(session: requests.Session, endpoints: tuple[str, ...]) -> str:
+    """POST hashes=all to each endpoint in turn; return the first that succeeds.
+
+    qBittorrent 4.x uses pause/resume, 5.x renamed them to stop/start and
+    returns 404 for the old names, so try both.
+    """
+    statuses = []
+    for endpoint in endpoints:
         r = session.post(
             f"{QBITTORRENT_URL}/api/v2/torrents/{endpoint}", data={"hashes": "all"}, timeout=10
         )
         if r.ok:
-            break
+            return endpoint
+        statuses.append(f"{endpoint}={r.status_code}")
+    raise RuntimeError(f"qBittorrent rejected all endpoints: {', '.join(statuses)}")
+
+
+def pause_all(session: requests.Session) -> None:
+    post_first_ok(session, ("pause", "stop"))
     logger.info("Paused all torrents (Plex playback started)")
 
 
 def resume_all(session: requests.Session) -> None:
-    for endpoint in ("resume", "start"):
-        r = session.post(
-            f"{QBITTORRENT_URL}/api/v2/torrents/{endpoint}", data={"hashes": "all"}, timeout=10
-        )
-        if r.ok:
-            break
+    post_first_ok(session, ("resume", "start"))
     logger.info("Resumed all torrents (Plex playback stopped)")
 
 

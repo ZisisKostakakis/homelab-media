@@ -19,30 +19,33 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configuration
+# Configuration (secrets are validated in main() so the module stays importable)
 RADARR_URL = "http://localhost:7878"
-RADARR_API_KEY = os.environ["RADARR_API_KEY"]
+RADARR_API_KEY = os.environ.get("RADARR_API_KEY", "")
 
 SONARR_URL = "http://localhost:8989"
-SONARR_API_KEY = os.environ["SONARR_API_KEY"]
+SONARR_API_KEY = os.environ.get("SONARR_API_KEY", "")
 
 QBITTORRENT_URL = "http://localhost:8080"
 QBITTORRENT_USERNAME = "admin"
-QBITTORRENT_PASSWORD = os.environ["QBITTORRENT_PASSWORD"]
+QBITTORRENT_PASSWORD = os.environ.get("QBITTORRENT_PASSWORD", "")
+REQUIRED_ENV = ("RADARR_API_KEY", "SONARR_API_KEY", "QBITTORRENT_PASSWORD")
 
 CROSS_SEED_CONFIG_PATH = "/var/lib/homelab-media-configs/cross-seed/config.js"
 CROSS_SEED_CONTAINER_NAME = "cross-seed"
 
-# Logging setup
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("/var/log/cross-seed-filter.log"),
-        logging.StreamHandler(sys.stdout),
-    ],
-)
 logger = logging.getLogger(__name__)
+
+
+def setup_logging() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler("/var/log/cross-seed-filter.log"),
+            logging.StreamHandler(sys.stdout),
+        ],
+    )
 
 
 class APIError(Exception):
@@ -205,6 +208,23 @@ def calculate_blocklist(all_torrents: dict[str, dict], managed_hashes: set[str])
     return blocklist
 
 
+def render_blocklist(config_content: str, blocklist: list[str]) -> str | None:
+    """Return config.js content with blockList replaced, or None if it has none."""
+    if blocklist:
+        blocklist_str = (
+            "[\n        " + ",\n        ".join(f'"{item}"' for item in blocklist) + "\n    ]"
+        )
+    else:
+        blocklist_str = "[]"
+
+    # Match: blockList: [...]
+    pattern = r"blockList:\s*\[[^\]]*\]"
+    if not re.search(pattern, config_content):
+        return None
+    # Lambda replacement so backslashes in values are never treated as group refs
+    return re.sub(pattern, lambda _: f"blockList: {blocklist_str}", config_content, count=1)
+
+
 def update_config_js(blocklist: list[str]) -> bool:
     """
     Update cross-seed config.js with new blockList.
@@ -220,22 +240,9 @@ def update_config_js(blocklist: list[str]) -> bool:
         with open(CROSS_SEED_CONFIG_PATH) as f:
             config_content = f.read()
 
-        # Format blocklist as JavaScript array
-        if blocklist:
-            blocklist_str = (
-                "[\n        " + ",\n        ".join(f'"{item}"' for item in blocklist) + "\n    ]"
-            )
-        else:
-            blocklist_str = "[]"
+        new_content = render_blocklist(config_content, blocklist)
 
-        # Replace blockList array using regex
-        # Match: blockList: [...],
-        pattern = r"blockList:\s*\[[^\]]*\]"
-        replacement = f"blockList: {blocklist_str}"
-
-        new_content = re.sub(pattern, replacement, config_content, count=1)
-
-        if new_content == config_content:
+        if new_content is None:
             logger.warning("blockList pattern not found in config.js - config may not be updated")
             return False
 
@@ -282,6 +289,12 @@ def restart_cross_seed() -> bool:
 
 def main():
     """Main execution function"""
+    setup_logging()
+    missing = [name for name in REQUIRED_ENV if not os.environ.get(name)]
+    if missing:
+        logger.error(f"Missing required environment variables: {', '.join(missing)}")
+        sys.exit(1)
+
     logger.info("=" * 60)
     logger.info("Cross-Seed Filter Sync - Starting")
     logger.info("=" * 60)

@@ -225,7 +225,7 @@ def render_blocklist(config_content: str, blocklist: list[str]) -> str | None:
     return re.sub(pattern, lambda _: f"blockList: {blocklist_str}", config_content, count=1)
 
 
-def update_config_js(blocklist: list[str]) -> bool:
+def update_config_js(blocklist: list[str]) -> str:
     """
     Update cross-seed config.js with new blockList.
 
@@ -233,7 +233,7 @@ def update_config_js(blocklist: list[str]) -> bool:
         blocklist: List of info hash strings to block
 
     Returns:
-        True if successful, False otherwise
+        "updated", "unchanged" (nothing written), or "failed"
     """
     try:
         # Read current config
@@ -244,18 +244,22 @@ def update_config_js(blocklist: list[str]) -> bool:
 
         if new_content is None:
             logger.warning("blockList pattern not found in config.js - config may not be updated")
-            return False
+            return "failed"
+
+        if new_content == config_content:
+            logger.info("blockList unchanged since last run")
+            return "unchanged"
 
         # Write back
         with open(CROSS_SEED_CONFIG_PATH, "w") as f:
             f.write(new_content)
 
         logger.info(f"Updated config.js with {len(blocklist)} blocked hashes")
-        return True
+        return "updated"
 
     except Exception as e:
         logger.error(f"Error updating config.js: {e}")
-        return False
+        return "failed"
 
 
 def restart_cross_seed() -> bool:
@@ -317,19 +321,20 @@ def main():
 
         # Step 4: Update config.js
         logger.info("Step 4: Updating cross-seed config...")
-        if update_config_js(blocklist):
-            logger.info("Config updated successfully")
-        else:
+        status = update_config_js(blocklist)
+        if status == "failed":
             logger.error("Failed to update config")
             sys.exit(1)
 
-        # Step 5: Restart cross-seed
-        logger.info("Step 5: Restarting cross-seed container...")
-        if restart_cross_seed():
-            logger.info("Cross-seed restarted successfully")
+        # Step 5: Restart cross-seed (only needed when config.js changed)
+        if status == "unchanged":
+            logger.info("Step 5: Skipping cross-seed restart - config unchanged")
         else:
-            logger.error("Failed to restart cross-seed")
-            sys.exit(1)
+            logger.info("Step 5: Restarting cross-seed container...")
+            if not restart_cross_seed():
+                logger.error("Failed to restart cross-seed")
+                sys.exit(1)
+            logger.info("Cross-seed restarted successfully")
 
         # Summary
         logger.info("=" * 60)

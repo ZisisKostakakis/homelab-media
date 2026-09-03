@@ -4,6 +4,7 @@
 ![Services](https://img.shields.io/badge/services-35%2B-green)
 ![VPN](https://img.shields.io/badge/VPN-ProtonVPN%20WireGuard-purple)
 ![License](https://img.shields.io/badge/license-personal-lightgrey)
+![CI](https://github.com/ZisisKostakakis/homelab-media/actions/workflows/ci.yml/badge.svg)
 
 A fully automated, self-healing homelab media stack built on Docker Compose. Handles everything from media requests to downloading, extracting, renaming, subtitle fetching, quality management, streaming, and music — with zero manual intervention after initial setup.
 
@@ -22,6 +23,7 @@ All download traffic routes through a WireGuard VPN with a firewall kill switch.
 - [Service Reference](#service-reference)
 - [Getting Started](#getting-started)
 - [Operations Reference](#operations-reference)
+- [Development](#development)
 - [Troubleshooting](#troubleshooting)
 - [Security Considerations](#security-considerations)
 
@@ -664,6 +666,33 @@ docker logs -f promtail        # confirm Promtail is scraping
 docker logs -f loki            # confirm Loki ingest/ruler
 curl -s http://localhost:3100/ready   # Loki readiness
 ```
+
+---
+
+## Development
+
+CI (`.github/workflows/ci.yml`) runs on every push and PR:
+
+| Job | Checks |
+|-----|--------|
+| Validate compose files | `docker compose config` on every `docker-compose-*.yml` |
+| ShellCheck | All tracked `*.sh` at warning severity |
+| Ruff | `ruff check` + `ruff format --check` (config in `pyproject.toml`) |
+| Tests | `pytest` via uv |
+
+Run the same checks locally:
+
+```bash
+uv sync
+uv run pytest -q
+uvx ruff check . && uvx ruff format --check .
+git ls-files -z '*.sh' | xargs -0 shellcheck --severity=warning
+for f in docker-compose-*.yml; do docker compose -f "$f" config -q; done
+```
+
+Python scripts with hyphenated names (called by path from Tautulli/cron) are
+loaded in tests with `importlib`; shell scripts are tested by running them
+under a fake `docker`/`df` on `PATH` (see `tests/test_healthcheck.py`).
 
 ---
 

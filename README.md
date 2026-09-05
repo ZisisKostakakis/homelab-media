@@ -88,7 +88,6 @@ Most services in this stack run inside the Gluetun VPN network namespace. They c
 | **Unpackerr** | `golift/unpackerr` | — | RAR/ZIP archive extractor |
 | **Recyclarr** | `recyclarr/recyclarr` | — | TRaSH Guides quality profile sync |
 | **Cleanuparr** | `cleanuparr/cleanuparr` | 11011 | Blocks malicious files, cleans stalled/orphaned downloads (bridge network) |
-| **Whisper ASR** | `onerahmet/openai-whisper-asr-webservice` | 9000 | AI subtitle generation backend for Bazarr (bridge network) |
 
 ### Plex Stack (`docker-compose-plex.yml`)
 
@@ -96,7 +95,7 @@ Most services in this stack run inside the Gluetun VPN network namespace. They c
 |---------|-------|------|------|
 | **Plex** | `linuxserver/plex` | 32400 (host) | Media server with hardware transcoding |
 | **SuggestArr** | `ciuse99/suggestarr` | 5000 | AI-powered media recommendations → Seerr |
-| **Kitana** | `pannal/kitana` | 31337 | Plex plugin manager web UI |
+| **Kitana** | `pannal/kitana` | 31337 | Plex plugin manager web UI (on-demand; `manual` profile) |
 | **Tautulli** | `linuxserver/tautulli` | 8787 | Plex play history, statistics, and automation scripts |
 | **plex-trakt-sync** | `taxel/plextraktsync` | host | Sync watched status to Trakt.tv (manual profile) |
 
@@ -159,7 +158,9 @@ See the [Media Request Flow diagram](./ARCHITECTURE.md#2-media-request-flow) for
 
 ### 2. Subtitle Pipeline (Bazarr)
 
-Bazarr monitors Sonarr and Radarr for newly imported media and automatically searches configured subtitle providers. Subtitles are downloaded and associated with the media file without any user action. When no provider has a match, the Whisper AI provider (`whisper-asr`, reached via the host IP because container DNS does not resolve inside the VPN namespace) transcribes or translates the audio track to generate subtitles locally.
+Bazarr monitors Sonarr and Radarr for newly imported media and automatically searches configured subtitle providers. Subtitles are downloaded and associated with the media file without any user action.
+
+A local Whisper ASR provider was previously used as a last-resort fallback, but it is disabled (commented out in `docker-compose-torrent.yml`): CPU-only transcription of a feature-length file outran the container healthcheck, so autoheal restarted it mid-job and Bazarr retried indefinitely without ever producing a subtitle.
 
 ### 3. Quality Management Pipeline (Recyclarr)
 
@@ -356,7 +357,7 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 | Readarr | `:8282` | torrent | VPN | Book automation |
 | Plex | `:32400` | plex | host | Media server |
 | SuggestArr | `:5000` | plex | bridge | Recommendations |
-| Kitana | `:31337` | plex | bridge | Plugin manager |
+| Kitana | `:31337` | plex | bridge | Plugin manager (on-demand) |
 | Tautulli | `:8787` | plex | bridge | Play stats + automation |
 | Navidrome | `:4533` | music | bridge | Music streaming |
 | AudioMuse | `:8000` | music | bridge | AI music analysis UI |

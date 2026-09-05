@@ -46,10 +46,15 @@ services:
     networks:
       - media_network
 
+  # On-demand only (profile: manual). Kitana is an interactive Plex plugin
+  # manager needed only while configuring plugins, and it busy-spins ~0.2 core
+  # around the clock when idle. Start it with:
+  #   ./stack-manage.sh plex start kitana
+  # and stop it again with `./stack-manage.sh plex down kitana` when finished.
   kitana:
     image: pannal/kitana:latest
     container_name: kitana
-    restart: unless-stopped
+    restart: "no"
     ports:
       - "${KITANA_PORT:-31337}:31337"
     volumes:
@@ -67,6 +72,8 @@ services:
       start_period: 30s
     networks:
       - media_network
+    profiles:
+      - manual
 
   tautulli:
     image: lscr.io/linuxserver/tautulli:latest

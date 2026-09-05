@@ -31,7 +31,7 @@ services:
       #- HEALTH_VPN_DURATION_INITIAL=30s  # Give it more time to connect before checking, is obsolete
       
       # Subnets (172.18.0.0/16 = homelab_media_network bridge)
-      - FIREWALL_OUTBOUND_SUBNETS=192.168.1.0/24,172.18.0.0/16
+      - FIREWALL_OUTBOUND_SUBNETS=${FIREWALL_OUTBOUND_SUBNETS}
       
       # Port Forwarding Command - Added a sleep to let qBit start
       # NOTE: We use 'sleep 10' to give qBittorrent time to initialize its Web UI
@@ -240,7 +240,7 @@ services:
 
 
   recyclarr:
-    image: recyclarr/recyclarr
+    image: recyclarr/recyclarr:8
     container_name: recyclarr
     user: 1000:1000
     environment:
@@ -291,30 +291,34 @@ services:
     networks:
       - media_network
 
-  # Whisper ASR for Bazarr AI-generated subtitles. Bazarr runs inside the
-  # gluetun namespace where container DNS does not resolve, so it reaches
-  # this service via the host LAN IP and the published port 9000.
-  whisper-asr:
-    image: onerahmet/openai-whisper-asr-webservice:latest
-    container_name: whisper-asr
-    restart: unless-stopped
-    ports:
-      - 9000:9000
-    environment:
-      - ASR_MODEL=small
-      - ASR_ENGINE=faster_whisper
-      - ASR_MODEL_PATH=/data/whisper
-      - TZ=${TZ}
-    volumes:
-      - /var/lib/homelab-media-configs/whisper:/data/whisper
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/openapi.json"]
-      interval: 1m
-      timeout: 10s
-      retries: 3
-      start_period: 2m
-    networks:
-      - media_network
+  # Whisper ASR (DISABLED 2026-09-05): CPU-only inference on a ~2h 1080p
+  # file saturated 4 cores for longer than the healthcheck's 10s timeout,
+  # so the container went unhealthy, autoheal restarted it mid-transcribe,
+  # and Bazarr retried the same file every ~6h. The job never completed.
+  # Whisper is fallback-only and English-only; the Greek providers cover us.
+  # To re-enable: uncomment, and exempt it from autoheal or raise the
+  # healthcheck timeout, or it will loop again.
+#  whisper-asr:
+#    image: onerahmet/openai-whisper-asr-webservice:latest
+#    container_name: whisper-asr
+#    restart: unless-stopped
+#    ports:
+#      - 9000:9000
+#    environment:
+#      - ASR_MODEL=small
+#      - ASR_ENGINE=faster_whisper
+#      - ASR_MODEL_PATH=/data/whisper
+#      - TZ=${TZ}
+#    volumes:
+#      - /var/lib/homelab-media-configs/whisper:/data/whisper
+#    healthcheck:
+#      test: ["CMD", "curl", "-f", "http://localhost:9000/openapi.json"]
+#      interval: 1m
+#      timeout: 10s
+#      retries: 3
+#      start_period: 2m
+#    networks:
+#      - media_network
 
 #  cross-seed:
 #    image: crossseed/cross-seed:latest

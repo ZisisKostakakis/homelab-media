@@ -101,7 +101,12 @@ torrent_safe_recreate() {
         echo "Building local images..."
         docker compose -p "$project_name" -f "$compose_file" build
         echo "Pulling latest images..."
-        docker compose -p "$project_name" -f "$compose_file" pull --ignore-buildable
+        # A single unpullable image (deleted tag, registry hiccup) must not abort
+        # the whole update: containers would never be recreated. Warn and carry on
+        # with whatever images are already present locally.
+        if ! run_with_retry docker compose -p "$project_name" -f "$compose_file" pull --ignore-buildable; then
+            log_warn "Some images could not be pulled; continuing with local images."
+        fi
     fi
 
     echo "Recreating gluetun..."
@@ -176,7 +181,9 @@ manage_stack() {
             if [ "$stack" = "torrent" ] && [ -z "$service" ]; then
                 torrent_safe_recreate "$compose_file" "$project_name" "true"
             else
-                run_with_retry docker compose -p "$project_name" -f "$compose_file" pull $service
+                if ! run_with_retry docker compose -p "$project_name" -f "$compose_file" pull $service; then
+                    log_warn "Some images could not be pulled; continuing with local images."
+                fi
                 run_with_retry docker compose -p "$project_name" -f "$compose_file" up -d --force-recreate $service
             fi
             ;;

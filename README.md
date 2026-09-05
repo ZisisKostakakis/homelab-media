@@ -259,7 +259,7 @@ This is the most critical self-healing layer. Gluetun creates a new network name
 | Setting | Value | Purpose |
 |---------|-------|---------|
 | `FIREWALL=on` | enabled | Kill switch — blocks all non-VPN traffic if tunnel drops |
-| `FIREWALL_OUTBOUND_SUBNETS` | `192.168.1.0/24,172.18.0.0/16` | Allow LAN + bridge traffic to bypass VPN |
+| `FIREWALL_OUTBOUND_SUBNETS` | `192.168.0.0/24,172.18.0.0/16` | Allow LAN + bridge traffic to bypass VPN |
 | `VPN_PORT_FORWARDING=on` | enabled | Proton assigns a port for inbound torrent connections |
 | `VPN_PORT_FORWARDING_UP_COMMAND` | `wget` to qBit API | Automatically updates qBittorrent's listening port when VPN assigns one |
 | `VPN_PORT_FORWARDING_DOWN_COMMAND` | `wget` to qBit API | Resets port to `0`/`lo` on VPN disconnect |
@@ -390,7 +390,7 @@ TZ_MAINTAINERR=Europe/Belfast
 WIREGUARD_PRIVATE_KEY=your_wireguard_private_key
 WIREGUARD_ADDRESSES=10.2.0.2/32
 SERVER_CITIES=London
-FIREWALL_OUTBOUND_SUBNETS=192.168.1.0/24
+FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/24
 
 # API Keys (obtain from each service's Settings > General after first start)
 SONARR_API_KEY=your_sonarr_api_key

@@ -269,7 +269,7 @@ graph LR
 
     subgraph EXTERNAL["☁️ External"]
         VPN_EP["Proton VPN Endpoint\n(London WireGuard)"]
-        LAN["Local Network\n192.168.1.0/24"]
+        LAN["Local Network\n192.168.0.0/24"]
         USERS["Users / Browsers"]
     end
 
@@ -290,7 +290,7 @@ graph LR
 | Rule | Detail |
 |------|--------|
 | Kill switch | `FIREWALL=on` — no traffic leaves if VPN drops |
-| Allowed outbound | `FIREWALL_OUTBOUND_SUBNETS=192.168.1.0/24,172.18.0.0/16` (LAN + bridge) |
+| Allowed outbound | `FIREWALL_OUTBOUND_SUBNETS=192.168.0.0/24,172.18.0.0/16` (LAN + bridge) |
 | DNS | Cloudflare `1.1.1.1` (DoT disabled for compatibility) |
 | Port forwarding | `VPN_PORT_FORWARDING=on` — dynamic port assigned by Proton, pushed to qBit via API |
 | MTU | `WIREGUARD_MTU=1280` (conservative for tunnel stability) |

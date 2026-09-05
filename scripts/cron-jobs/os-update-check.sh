@@ -1,9 +1,10 @@
 #!/bin/bash
 # Cron Job: report host OS patch state (does NOT install anything)
 #
-# Package installation is handled by Debian's own unattended-upgrades, not by
-# this script. unattended-upgrades applies security updates silently and has no
-# way to tell you anything — so this job is the reporting half of that pair:
+# Nothing on this host installs packages automatically — unattended-upgrades is
+# disabled and apt-daily-upgrade.timer is masked (see config/host/apt/20auto-upgrades).
+# Patching is a manual action run via scripts/host-update.sh, so this job is the
+# only thing that will tell you patches are waiting:
 #
 #   * Reboot required?  unattended-upgrades / update-notifier-common drop
 #                       /var/run/reboot-required when a patched package (kernel,
@@ -13,11 +14,11 @@
 #                       stays yours. This is the nudge that tells you one is due.
 #
 #   * Held-back packages?  The Docker packages (docker-ce, containerd.io, ...) are
-#                       blacklisted in unattended-upgrades, because upgrading them
-#                       restarts the Docker daemon and bounces every container.
-#                       That must happen in a window you chose, not at 06:10 on a
-#                       Tuesday. This job tells you when Docker updates are waiting
-#                       so you can apply them deliberately.
+#                       blacklisted in the 52homelab unattended-upgrades policy,
+#                       because upgrading them restarts the Docker daemon and
+#                       bounces every container. That must happen in a window you
+#                       chose. This job tells you when Docker updates are waiting;
+#                       scripts/host-update.sh is what applies them.
 #
 # Notifies via ntfy only when there is something to act on, so a healthy box stays
 # silent and the alert keeps its meaning.

@@ -1,6 +1,33 @@
-// Drives apt-daily.timer / apt-daily-upgrade.timer (both already active).
-// Update the package index and run unattended-upgrades daily; the policy for
-// what actually gets installed lives in 52homelab-unattended-upgrades.
+// Drives apt-daily.timer / apt-daily-upgrade.timer.
+//
+// Unattended-Upgrade is DISABLED ("0") and apt-daily-upgrade.timer is masked by
+// scripts/install-host-config.sh — the host does not patch itself. This is a
+// standing operator decision, not a temporary measure while something is debugged.
+//
+// Why: patching this box and rebooting it are one action, and that action needs a
+// human who can reach the machine if it does not come back. Kernel and Docker
+// updates only take effect on a reboot, and the operator is periodically away for
+// weeks at a time with no access to the host. An unattended upgrade that lands
+// during one of those stretches is a change nobody can verify, on a box nobody can
+// recover, for however long the absence lasts. Deferring to a hands-on window
+// trades a patch delay for the ability to fix what breaks.
+//
+// Consequence: Debian security updates are NOT applied automatically. Patching is
+// a manual action, done when the operator can reach the machine:
+//     sudo unattended-upgrade --dry-run    # preview under the 52homelab policy
+//     sudo apt-get update && sudo apt-get upgrade
+//     sudo reboot                          # if /var/run/reboot-required exists
+//
+// Update-Package-Lists stays "1" on purpose. apt-daily.timer only refreshes the
+// package index and downloads — it installs nothing — and that refresh is what
+// keeps `apt list --upgradable` accurate for scripts/cron-jobs/os-update-check.sh,
+// which is now the only thing telling you security updates are pending. Turning it
+// off would leave the box unpatched AND silent about it.
+//
+// The install policy in 52homelab-unattended-upgrades is retained so a manual
+// `unattended-upgrade` run still applies the security-only, Docker- and
+// kernel-blacklisted policy, and so re-enabling is a one-line change here plus
+// unmasking the timer.
 APT::Periodic::Update-Package-Lists "1";
-APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::Unattended-Upgrade "0";
 APT::Periodic::AutocleanInterval "7";

@@ -10,19 +10,47 @@
 # What it installs:
 #
 #   apt/52homelab-unattended-upgrades -> /etc/apt/apt.conf.d/
-#       Security-only automatic patching via Debian's unattended-upgrades.
-#       Docker packages and kernels are blacklisted (upgrading Docker restarts the
-#       daemon and bounces every container; a kernel does nothing until a reboot).
-#       Never auto-reboots.
+#       The patch POLICY: security-only, Docker packages and kernels blacklisted,
+#       never auto-reboot. Nothing applies it on a timer any more, but it still
+#       governs a manual `unattended-upgrade` run — see below.
 #
 #   apt/20auto-upgrades -> /etc/apt/apt.conf.d/
-#       Arms the apt-daily / apt-daily-upgrade systemd timers that actually run it.
+#       Sets Unattended-Upgrade "0" — automatic patching is OFF.
 #
 #   docker/daemon.json -> /etc/docker/
 #       live-restore: containers keep running across a Docker DAEMON restart, so
 #       upgrading docker-ce does not drop the media stack. Plus json-file log
 #       rotation (10m x 3) — note this only applies to containers created AFTER
 #       the daemon picks it up, not to already-running ones.
+#
+# AUTOMATIC HOST PATCHING IS DISABLED — a standing operator decision, not a
+# temporary measure. Patching this host and rebooting it are one action, and that
+# action needs a human who can reach the machine if it does not come back. Kernel
+# and Docker updates only take effect on a reboot, and the operator is periodically
+# away for weeks with no access to the box. An unattended upgrade landing during one
+# of those stretches is a change nobody can verify, on a host nobody can recover,
+# for the length of the absence. Deferring to a hands-on window trades a patch delay
+# for the ability to fix what breaks.
+#
+# Enforced in two places, because 20auto-upgrades alone is not sufficient:
+#   * Unattended-Upgrade "0" in apt/20auto-upgrades stops apt.systemd.daily.
+#   * This script masks apt-daily-upgrade.timer, the unit that actually installs.
+# Masking rather than disabling is deliberate: the unit ships in
+# /usr/lib/systemd/system/, so an apt upgrade of the systemd/apt packages can
+# silently re-enable a merely-disabled timer. The mask symlink to /dev/null survives.
+#
+# Consequence: Debian security updates are NOT applied to this host automatically.
+# Patch manually, when you can reach the machine:
+#     sudo unattended-upgrade --dry-run    # preview under the 52homelab policy
+#     sudo apt-get update && sudo apt-get upgrade
+#     sudo reboot                          # if /var/run/reboot-required exists
+#
+# apt-daily.timer is intentionally left running — it only refreshes the index and
+# downloads, installing nothing, and keeps os-update-check.sh's report accurate.
+# That ntfy nudge is now the only thing telling you patches are pending.
+#
+# To re-enable: set Unattended-Upgrade "1" in config/host/apt/20auto-upgrades, then
+#     sudo systemctl unmask --now apt-daily-upgrade.timer
 #
 # Reporting is handled separately by scripts/cron-jobs/os-update-check.sh, which
 # self-registers its own cron entry (run it with --install).
@@ -88,6 +116,21 @@ fi
 install_file "${SRC}/apt/52homelab-unattended-upgrades" /etc/apt/apt.conf.d/52homelab-unattended-upgrades || true
 install_file "${SRC}/apt/20auto-upgrades"               /etc/apt/apt.conf.d/20auto-upgrades || true
 
+# --- Disable automatic patching (see header) ---
+# 20auto-upgrades already sets Unattended-Upgrade "0", but apt.systemd.daily is not
+# the only thing that can trigger an install run. Masking the timer is the belt to
+# that braces, and unlike `disable` it cannot be undone by a package upgrade.
+# apt-daily.timer is deliberately NOT touched — index refresh only, installs nothing.
+if [ "$(systemctl is-enabled apt-daily-upgrade.timer 2>/dev/null)" = "masked" ]; then
+    echo -e "  ${GREEN}=${NC} apt-daily-upgrade.timer (already masked)"
+elif [ "$DRY_RUN" = true ]; then
+    echo -e "  ${YELLOW}~${NC} apt-daily-upgrade.timer (would stop + mask)"
+else
+    systemctl stop apt-daily-upgrade.timer 2>/dev/null || true
+    systemctl mask apt-daily-upgrade.timer >/dev/null 2>&1
+    echo -e "  ${GREEN}+${NC} apt-daily-upgrade.timer (stopped + masked)"
+fi
+
 # --- Docker daemon ---
 DOCKER_CHANGED=false
 install_file "${SRC}/docker/daemon.json" /etc/docker/daemon.json && DOCKER_CHANGED=true
@@ -113,9 +156,16 @@ fi
 echo
 echo "=== Verify ==="
 echo "  Live restore    : $(docker info --format '{{.LiveRestoreEnabled}}' 2>/dev/null || echo 'unknown')"
+echo "  Auto-patching   : $(apt-config dump 2>/dev/null | grep -oP 'APT::Periodic::Unattended-Upgrade "\K[^"]+' || echo 'unset') (0 = off)"
+echo "  Upgrade timer   : $(systemctl is-enabled apt-daily-upgrade.timer 2>/dev/null || echo 'unknown')"
+echo "  Index timer     : $(systemctl is-enabled apt-daily.timer 2>/dev/null || echo 'unknown') (refresh only, installs nothing)"
 echo "  Auto-reboot     : $(apt-config dump 2>/dev/null | grep -oP 'Unattended-Upgrade::Automatic-Reboot "\K[^"]+' || echo 'unset')"
-echo "  Security origins:"
-apt-config dump 2>/dev/null | grep -oP 'Origins-Pattern:: "\K[^"]+' | sed 's/^/    /'
 echo
-echo -e "${GREEN}Done.${NC} Dry-run the patch policy with: unattended-upgrade --dry-run"
-echo "Register the daily patch-state check with: scripts/cron-jobs/os-update-check.sh --install"
+echo -e "${YELLOW}Automatic security patching is OFF — this host does not patch itself.${NC}"
+echo "  Patch manually : sudo apt-get update && sudo apt-get upgrade"
+echo "  Preview policy : sudo unattended-upgrade --dry-run"
+echo "  Re-enable      : set Unattended-Upgrade \"1\" in config/host/apt/20auto-upgrades,"
+echo "                   then sudo systemctl unmask --now apt-daily-upgrade.timer"
+echo
+echo -e "${GREEN}Done.${NC} Pending updates are still reported by scripts/cron-jobs/os-update-check.sh"
+echo "Register that daily check with: scripts/cron-jobs/os-update-check.sh --install"

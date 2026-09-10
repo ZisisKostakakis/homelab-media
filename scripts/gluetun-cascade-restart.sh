@@ -38,6 +38,11 @@ load_configuration() {
     NTFY_PRIORITY=${NTFY_PRIORITY:-4}
     LOG_FILE=${LOG_FILE:-"/config/restart-history.log"}
     VERBOSE_LOGGING=${VERBOSE_LOGGING:-true}
+    WATCHDOG_ENABLED=${WATCHDOG_ENABLED:-true}
+    WATCHDOG_INTERVAL=${WATCHDOG_INTERVAL:-300}
+    WATCHDOG_STARTUP_DELAY=${WATCHDOG_STARTUP_DELAY:-120}
+    WATCHDOG_MAX_RESTARTS_PER_HOUR=${WATCHDOG_MAX_RESTARTS_PER_HOUR:-2}
+    WATCHDOG_STATE_FILE=${WATCHDOG_STATE_FILE:-"/config/watchdog-restarts.state"}
 }
 
 #############################################
@@ -210,6 +215,147 @@ cascade_restart_torrent_stack() {
     log_event "INFO" "=== Cascade restart completed in ${duration}s ==="
 
     return 0
+}
+
+#############################################
+# Port-Forward / Interface Watchdog
+#############################################
+#
+# Gluetun's VPN_PORT_FORWARDING_DOWN_COMMAND deliberately pins qBittorrent to
+# the "lo" interface whenever the forwarded port drops, so traffic cannot leak
+# outside the tunnel. The matching UP command moves it back to tun0.
+#
+# Failure mode this guards against: gluetun's port-forwarding service can die
+# permanently (e.g. a VPN endpoint that refuses NAT-PMP) while the container
+# itself stays up and "healthy". The DOWN command has already fired, the UP
+# command never fires again, and qBittorrent sits on "lo" with zero peers
+# indefinitely. No container restart happens, so the docker-events loop that
+# drives this monitor never sees anything.
+#
+# Downstream that looks like torrents stalling forever, which makes cleanuparr
+# strike them, remove them and re-search - a grab/strike/remove loop.
+
+watchdog_restart_allowed() {
+    set +e
+    local state_file="${WATCHDOG_STATE_FILE}"
+    local now
+    now=$(date +%s)
+    local hour_ago=$((now - 3600))
+
+    local kept=""
+    local count=0
+    if [ -f "$state_file" ]; then
+        while read -r ts; do
+            [ -n "$ts" ] || continue
+            if [ "$ts" -gt "$hour_ago" ] 2>/dev/null; then
+                kept="$kept$ts\n"
+                count=$((count + 1))
+            fi
+        done < "$state_file"
+    fi
+
+    if [ "$count" -ge "$WATCHDOG_MAX_RESTARTS_PER_HOUR" ]; then
+        printf "%b" "$kept" > "$state_file" 2>/dev/null || true
+        return 1
+    fi
+
+    printf "%b%s\n" "$kept" "$now" > "$state_file" 2>/dev/null || true
+    return 0
+}
+
+check_port_forward_health() {
+    # The script runs under `set -e`, but this function deliberately probes
+    # things that are expected to fail (API not up yet, tun0 missing, no port
+    # file). Without this the first non-zero command would kill the watchdog
+    # subshell silently and the loop would restart from its startup delay.
+    set +e
+
+    # Only meaningful once qBittorrent is actually up.
+    local running
+    running=$(docker inspect qbittorrent --format '{{.State.Running}}' 2>/dev/null || echo "false")
+    [ "$running" = "true" ] || return 0
+
+    local prefs
+    prefs=$(docker exec qbittorrent curl -sf --max-time 10 \
+        "http://localhost:8080/api/v2/app/preferences" 2>/dev/null) || {
+        log_event "DEBUG" "Watchdog: qBittorrent API not answering yet"
+        return 0
+    }
+
+    local iface
+    iface=$(echo "$prefs" | sed -n 's/.*"current_network_interface":"\([^"]*\)".*/\1/p')
+
+    # Healthy: bound to the tunnel. Nothing to do.
+    [ "$iface" = "tun0" ] && return 0
+
+    # Not on tun0. If the tunnel itself is down this is the kill-switch working
+    # as intended - gluetun will restore it when the VPN comes back.
+    if ! docker exec gluetun ip link show tun0 >/dev/null 2>&1; then
+        log_event "DEBUG" "Watchdog: qBittorrent on '$iface' but tun0 is absent (kill-switch active, expected)"
+        return 0
+    fi
+
+    log_event "WARN" "Watchdog: qBittorrent bound to '$iface' while tun0 is up - stranded, repairing"
+
+    # Prefer repairing in place using the port gluetun currently holds.
+    local fwd_port
+    fwd_port=$(docker exec gluetun cat /tmp/gluetun/forwarded_port 2>/dev/null | tr -d '[:space:]')
+
+    if [ -n "$fwd_port" ] && [ "$fwd_port" -gt 0 ] 2>/dev/null; then
+        log_event "INFO" "Watchdog: re-binding qBittorrent to tun0 on forwarded port $fwd_port"
+        if docker exec qbittorrent curl -sf --max-time 10 \
+            --data-urlencode "json={\"listen_port\":${fwd_port},\"current_network_interface\":\"tun0\",\"current_interface_address\":\"\"}" \
+            "http://localhost:8080/api/v2/app/setPreferences" >/dev/null 2>&1; then
+            log_event "INFO" "Watchdog: qBittorrent re-bound to tun0:$fwd_port"
+            send_notification "Interface Auto-Repaired" \
+"🔧 qBittorrent was stranded on '$iface' with the VPN tunnel up.
+
+Re-bound to tun0 on forwarded port $fwd_port.
+No stack restart was required." 3
+            return 0
+        fi
+        log_event "ERROR" "Watchdog: setPreferences call failed"
+    else
+        log_event "WARN" "Watchdog: no forwarded port held by gluetun - port forwarding is dead"
+    fi
+
+    # No usable port, or the repair failed: gluetun's port-forwarding service
+    # needs to be restarted. Restarting gluetun re-runs it and fires the UP
+    # command; the docker-events loop then cascades the dependent services.
+    #
+    # The watchdog runs in a background subshell, so it cannot share
+    # RESTART_TIMESTAMPS with the event loop (variables would not propagate
+    # back). Use a small state file so the limit survives across checks and
+    # across monitor restarts.
+    if ! watchdog_restart_allowed; then
+        log_event "WARN" "Watchdog: gluetun restart suppressed (max ${WATCHDOG_MAX_RESTARTS_PER_HOUR}/hour already used)"
+        return 1
+    fi
+
+    log_event "WARN" "Watchdog: restarting gluetun to revive port forwarding"
+    send_notification "Port Forwarding Dead" \
+"⚠️ qBittorrent stranded on '$iface' and gluetun holds no forwarded port.
+
+Restarting gluetun to revive the port-forwarding service.
+The usual cascade restart will follow." 4
+
+    docker restart gluetun >/dev/null 2>&1 || {
+        log_event "ERROR" "Watchdog: failed to restart gluetun"
+        return 1
+    }
+    return 0
+}
+
+watchdog_loop() {
+    # Never let a failing probe terminate the watchdog.
+    set +e
+    log_event "INFO" "Port-forward watchdog started (interval: ${WATCHDOG_INTERVAL}s)"
+    # Let the stack settle before the first check.
+    sleep "$WATCHDOG_STARTUP_DELAY"
+    while true; do
+        check_port_forward_health
+        sleep "$WATCHDOG_INTERVAL"
+    done
 }
 
 #############################################
@@ -461,6 +607,16 @@ log_event "INFO" "========================================"
 load_configuration
 
 log_event "INFO" "Configuration loaded successfully"
+
+# Start the port-forward watchdog alongside the event loop. It catches the
+# case where gluetun stays up but port forwarding dies, which the
+# docker-events loop cannot see.
+if [ "$WATCHDOG_ENABLED" = "true" ]; then
+    watchdog_loop &
+    log_event "INFO" "Watchdog running as PID $!"
+else
+    log_event "INFO" "Watchdog disabled by configuration"
+fi
 
 # Start main event loop
 main_event_loop

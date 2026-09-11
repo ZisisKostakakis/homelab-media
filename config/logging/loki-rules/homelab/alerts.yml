@@ -23,3 +23,44 @@ groups:
       #   annotations:
       #     summary: "{{ $labels.container_name }} has stopped logging"
       #     description: "No log lines from {{ $labels.container_name }} for 15m."
+
+  # VPN / port-forwarding health, driven by gluetun-monitor's own log lines
+  # (scripts/gluetun-cascade-restart.sh). Message strings must match log_event calls.
+  - name: homelab-vpn
+    rules:
+      - alert: CascadeRestartFailed
+        expr: |
+          sum(count_over_time({container_name="gluetun-monitor"} |= "All cascade restart attempts failed" [10m])) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Torrent stack did not recover after a gluetun restart"
+          description: "gluetun-monitor exhausted its cascade restart attempts. VPN-dependent services are likely down."
+
+      - alert: GluetunFlapping
+        expr: |
+          sum(count_over_time({container_name="gluetun-monitor"} |= "Gluetun restart confirmed" [1h])) >= 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "Gluetun restarted {{ $value }} times in the last hour"
+          description: "Repeated VPN restarts usually mean a bad server/endpoint or expired WireGuard credentials."
+
+      - alert: PortForwardingDead
+        expr: |
+          sum(count_over_time({container_name="gluetun-monitor"} |= "port forwarding is dead" [15m])) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Gluetun holds no forwarded port"
+          description: "The port-forward watchdog has found no forwarded port for 15m+. Torrents will have no incoming peers."
+
+      - alert: WatchdogRestartSuppressed
+        expr: |
+          sum(count_over_time({container_name="gluetun-monitor"} |= "gluetun restart suppressed" [30m])) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Port-forward watchdog hit its restart limit"
+          description: "Watchdog wanted to restart gluetun but WATCHDOG_MAX_RESTARTS_PER_HOUR is used up. Manual attention needed."

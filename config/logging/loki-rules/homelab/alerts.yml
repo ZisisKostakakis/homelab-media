@@ -64,3 +64,30 @@ groups:
         annotations:
           summary: "Port-forward watchdog hit its restart limit"
           description: "Watchdog wanted to restart gluetun but WATCHDOG_MAX_RESTARTS_PER_HOUR is used up. Manual attention needed."
+
+  # Restart loops: autoheal logs one line per restart it performs.
+  # Format: "<date> Container /<name> (<id>) found to be unhealthy - Restarting container now ..."
+  - name: homelab-restarts
+    rules:
+      - alert: ContainerRestartLoop
+        expr: |
+          sum by (target) (
+            count_over_time(
+              {container_name="autoheal"} |= "found to be unhealthy"
+                | regexp `Container /?(?P<target>[^ ]+) \(` [30m]
+            )
+          ) >= 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.target }} restarted by autoheal {{ $value }} times in 30m"
+          description: "Restarting is not fixing {{ $labels.target }}; check its logs for the underlying failure."
+
+      - alert: AutohealRestartFailed
+        expr: |
+          sum(count_over_time({container_name="autoheal"} |= "Restarting container" |= "failed" [10m])) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "autoheal failed to restart a container"
+          description: "docker restart returned an error from autoheal; the container is probably stuck."

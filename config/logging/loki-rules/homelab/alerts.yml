@@ -91,3 +91,30 @@ groups:
         annotations:
           summary: "autoheal failed to restart a container"
           description: "docker restart returned an error from autoheal; the container is probably stuck."
+
+  # *arr import pipeline. Sonarr/Radarr/Lidarr log "Couldn't import <item>" when an
+  # import throws, and "Import failed, path does not exist or is not accessible"
+  # when the download path is wrong (usually a broken volume mapping).
+  - name: homelab-arr
+    rules:
+      - alert: ArrImportFailures
+        expr: |
+          sum by (container_name) (
+            count_over_time({container_name=~"sonarr|radarr|lidarr"} |~ "Couldn't import|Import failed" [1h])
+          ) >= 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.container_name }}: {{ $value }} failed imports in the last hour"
+          description: "Check the Activity > Queue page in {{ $labels.container_name }}; often a permissions or path-mapping problem."
+
+      - alert: ArrDownloadPathMissing
+        expr: |
+          sum by (container_name) (
+            count_over_time({container_name=~"sonarr|radarr|lidarr"} |= "path does not exist or is not accessible" [15m])
+          ) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.container_name }} cannot see the download path"
+          description: "Imports will all fail until the /data mount is fixed (is the media disk mounted?)."

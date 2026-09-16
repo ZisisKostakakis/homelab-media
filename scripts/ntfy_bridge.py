@@ -47,12 +47,14 @@ def format_messages(payload):
     for alert in alerts:
         labels = alert.get("labels", {}) if isinstance(alert, dict) else {}
         annotations = alert.get("annotations", {}) if isinstance(alert, dict) else {}
-        container = labels.get("container_name", "unknown")
+        # Container-scoped rules label container_name; the autoheal rule extracts
+        # "target". Stack-wide rules (e.g. VPN) have neither.
+        container = labels.get("container_name") or labels.get("target")
         alertname = labels.get("alertname", "alert")
         status = alert.get("status", "firing")
         priority = severity_to_priority(labels.get("severity"))
         prefix = "RESOLVED" if status == "resolved" else "FIRING"
-        title = f"[{prefix}] {alertname} - {container}"
+        title = f"[{prefix}] {alertname}" + (f" - {container}" if container else "")
         body_parts = [
             annotations.get("summary", ""),
             annotations.get("description", ""),

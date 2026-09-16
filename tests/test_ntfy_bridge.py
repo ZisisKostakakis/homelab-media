@@ -51,6 +51,21 @@ def test_format_message_title_includes_container_and_alertname():
     assert "HighErrorRate" in msg["title"]
 
 
+def _alert_with_labels(**labels):
+    return {"alerts": [{"status": "firing", "labels": labels, "annotations": {}}]}
+
+
+def test_format_message_title_falls_back_to_target_label():
+    payload = _alert_with_labels(alertname="ContainerRestartLoop", target="sonarr")
+    msg = ntfy_bridge.format_messages(payload)[0]
+    assert msg["title"] == "[FIRING] ContainerRestartLoop - sonarr"
+
+
+def test_format_message_title_omits_container_for_stack_wide_alerts():
+    msg = ntfy_bridge.format_messages(_alert_with_labels(alertname="PortForwardingDead"))[0]
+    assert msg["title"] == "[FIRING] PortForwardingDead"
+
+
 def test_format_message_priority_from_severity():
     msg = ntfy_bridge.format_messages(_sample_alert(severity="critical"))[0]
     assert msg["priority"] == 5

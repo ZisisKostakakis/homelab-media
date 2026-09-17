@@ -20,6 +20,20 @@ jobs:
             echo "::endgroup::"
           done
 
+  alerting:
+    name: Validate alert rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint Loki rules
+        run: |
+          docker run --rm -v "$PWD/config/logging/loki-rules:/rules:ro" \
+            grafana/cortex-tools:latest rules lint --dry-run --backend=loki /rules/homelab/alerts.yml
+      - name: Check Alertmanager config
+        run: |
+          docker run --rm -v "$PWD/config/logging:/cfg:ro" --entrypoint amtool \
+            prom/alertmanager:latest check-config /cfg/alertmanager.yml
+
   shellcheck:
     name: ShellCheck
     runs-on: ubuntu-latest

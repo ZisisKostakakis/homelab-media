@@ -1,0 +1,141 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Gluetun restarts (per hour)",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({container_name=\"gluetun-monitor\"} |= \"Gluetun restart confirmed\" [1h]))",
+          "refId": "A",
+          "legendFormat": "restarts"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Port-forward watchdog events",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "sum by (event) (count_over_time({container_name=\"gluetun-monitor\"} |= \"Watchdog:\" | regexp `(?P<event>stranded|no forwarded port|restarting gluetun|restart suppressed|re-bound to tun0)` [15m]))",
+          "refId": "A",
+          "legendFormat": "{{event}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Autoheal restarts by container",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (target) (count_over_time({container_name=\"autoheal\"} |= \"found to be unhealthy\" | regexp `Container /?(?P<target>[^ ]+) \\(` [30m]))",
+          "refId": "A",
+          "legendFormat": "{{target}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "*arr import failures",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (container_name) (count_over_time({container_name=~\"sonarr|radarr|lidarr\"} |~ \"Couldn't import|Import failed\" [1h]))",
+          "refId": "A",
+          "legendFormat": "{{container_name}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "qBittorrent / VPN error lines",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "targets": [
+        {
+          "expr": "sum by (container_name) (rate({container_name=~\"gluetun|qbittorrent\"} |~ \"(?i)\\\\b(error|fatal)\\\\b\" [5m]))",
+          "refId": "A",
+          "legendFormat": "{{container_name}}"
+        }
+      ]
+    },
+    {
+      "type": "logs",
+      "title": "gluetun-monitor log",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "targets": [
+        {
+          "expr": "{container_name=\"gluetun-monitor\"} |~ \"\\\\[(WARN|ERROR)\\\\]\"",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "title": "Homelab VPN & Downloads",
+  "uid": "homelab-vpn-downloads",
+  "version": 1
+}

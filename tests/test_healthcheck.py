@@ -36,10 +36,15 @@ def repo(tmp_path):
     return tmp_path
 
 
-def run(repo, running, *args):
+def run(repo, running, *args, unhealthy=()):
     fake = repo / "bin" / "docker"
     names = "\\n".join(running)
-    fake.write_text(f'#!/bin/sh\n[ "$1" = info ] && exit 0\nprintf "{names}\\n"\n')
+    sick = "\\n".join(unhealthy)
+    fake.write_text(
+        "#!/bin/sh\n"
+        '[ "$1" = info ] && exit 0\n'
+        f'case "$*" in *health=unhealthy*) printf "{sick}\\n" ;; *) printf "{names}\\n" ;; esac\n'
+    )
     fake.chmod(0o755)
     return subprocess.run(
         ["bash", str(repo / "scripts" / "healthcheck.sh"), *args],
@@ -52,7 +57,7 @@ def run(repo, running, *args):
 def test_all_running_passes(repo):
     r = run(repo, ["sonarr", "qbittorrent"])
     assert r.returncode == 0
-    assert "OK: all 2 expected services are running" in r.stdout
+    assert "OK: all 2 expected services are running and healthy" in r.stdout
 
 
 def test_matches_on_container_name_not_service_key(repo):
@@ -75,6 +80,8 @@ def test_json_reports_missing_services(repo):
         "expected": 2,
         "missing": 1,
         "missing_services": "torrent/sonarr",
+        "unhealthy": 0,
+        "unhealthy_services": "",
         "ok": False,
     }
 

@@ -1,10 +1,11 @@
 #!/bin/bash
 
-# healthcheck.sh — verify every expected homelab service is running.
+# healthcheck.sh — verify every expected homelab service is running and healthy.
 #
 # Walks each docker-compose-*.yml in the repo root, extracts the service list,
 # and compares it against currently running containers. Exits non-zero if any
-# expected service is missing — suitable for cron + paging.
+# expected service is missing or failing its Docker healthcheck — suitable for
+# cron + paging.
 #
 # Usage: ./scripts/healthcheck.sh [--quiet] [--json]
 #   --quiet  Only print on failure
@@ -36,8 +37,11 @@ fi
 
 # Collect the set of currently running container names once, for efficient lookup.
 RUNNING=$(docker ps --format '{{.Names}}' | sort -u)
+# Running but failing their healthcheck (autoheal may be restarting them).
+UNHEALTHY_NOW=$(docker ps --filter health=unhealthy --format '{{.Names}}' | sort -u)
 
 MISSING=()
+UNHEALTHY=()
 EXPECTED_TOTAL=0
 
 for compose in "$REPO_DIR"/docker-compose-*.yml; do
@@ -70,22 +74,33 @@ for compose in "$REPO_DIR"/docker-compose-*.yml; do
         EXPECTED_TOTAL=$((EXPECTED_TOTAL + 1))
         if ! echo "$RUNNING" | grep -qx "$cname"; then
             MISSING+=("$stack/$svc")
+        elif echo "$UNHEALTHY_NOW" | grep -qx "$cname"; then
+            UNHEALTHY+=("$stack/$svc")
         fi
     done <<< "$service_map"
 done
 
 MISSING_COUNT=${#MISSING[@]}
+UNHEALTHY_COUNT=${#UNHEALTHY[@]}
+OK=$([ "$MISSING_COUNT" -eq 0 ] && [ "$UNHEALTHY_COUNT" -eq 0 ] && echo true || echo false)
 
 if [ "$JSON" = true ]; then
     missing_csv=$(IFS=,; echo "${MISSING[*]:-}")
-    printf '{"expected":%d,"missing":%d,"missing_services":"%s","ok":%s}\n' \
+    unhealthy_csv=$(IFS=,; echo "${UNHEALTHY[*]:-}")
+    printf '{"expected":%d,"missing":%d,"missing_services":"%s","unhealthy":%d,"unhealthy_services":"%s","ok":%s}\n' \
         "$EXPECTED_TOTAL" "$MISSING_COUNT" "$missing_csv" \
-        "$([ $MISSING_COUNT -eq 0 ] && echo true || echo false)"
-elif [ $MISSING_COUNT -eq 0 ]; then
-    [ "$QUIET" = false ] && echo "OK: all $EXPECTED_TOTAL expected services are running"
+        "$UNHEALTHY_COUNT" "$unhealthy_csv" "$OK"
+elif [ "$OK" = true ]; then
+    [ "$QUIET" = false ] && echo "OK: all $EXPECTED_TOTAL expected services are running and healthy"
 else
-    echo "FAIL: ${MISSING_COUNT}/${EXPECTED_TOTAL} services not running:"
-    printf '  - %s\n' "${MISSING[@]}"
+    if [ "$MISSING_COUNT" -gt 0 ]; then
+        echo "FAIL: ${MISSING_COUNT}/${EXPECTED_TOTAL} services not running:"
+        printf '  - %s\n' "${MISSING[@]}"
+    fi
+    if [ "$UNHEALTHY_COUNT" -gt 0 ]; then
+        echo "FAIL: ${UNHEALTHY_COUNT}/${EXPECTED_TOTAL} services unhealthy:"
+        printf '  - %s\n' "${UNHEALTHY[@]}"
+    fi
 fi
 
-[ $MISSING_COUNT -eq 0 ]
+[ "$OK" = true ]

@@ -90,3 +90,26 @@ def test_quiet_prints_nothing_on_success(repo):
     r = run(repo, ["sonarr", "qbittorrent"], "--quiet")
     assert r.returncode == 0
     assert r.stdout == ""
+
+
+def test_unhealthy_container_fails(repo):
+    r = run(repo, ["sonarr", "qbittorrent"], unhealthy=["sonarr"])
+    assert r.returncode == 1
+    assert "1/2 services unhealthy" in r.stdout
+    assert "torrent/sonarr" in r.stdout
+
+
+def test_json_reports_unhealthy_services(repo):
+    r = run(repo, ["sonarr", "qbittorrent"], "--json", unhealthy=["qbittorrent"])
+    status = json.loads(r.stdout)
+    assert status["unhealthy"] == 1
+    assert status["unhealthy_services"] == "torrent/qbit"
+    assert status["missing"] == 0
+    assert status["ok"] is False
+
+
+def test_missing_container_is_not_also_counted_unhealthy(repo):
+    # A stopped container can't be unhealthy; report it once, as missing.
+    r = run(repo, ["qbittorrent"], "--json", unhealthy=["sonarr"])
+    status = json.loads(r.stdout)
+    assert (status["missing"], status["unhealthy"]) == (1, 0)

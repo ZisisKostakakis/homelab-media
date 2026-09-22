@@ -1,5 +1,5 @@
 # User-Facing Services Stack
-# Non-VPN services: Seerr, Maintainerr, Filebrowser, Wizarr
+# Non-VPN services: Seerr, Maintainerr, Filebrowser, Wizarr, Checkrr
 # These services don't need VPN and can run independently
 
 services:
@@ -144,6 +144,30 @@ services:
     volumes:
       - /var/lib/homelab-media-configs/picard:/config
       - /mnt/media:/storage
+    networks:
+      - media_network
+
+  checkrr:
+    image: aetaric/checkrr:latest
+    container_name: checkrr
+    restart: unless-stopped
+    # Directory mount (not single files) so checkrr.db is created on first run.
+    # Config template: config/checkrr/checkrr.yaml.example
+    command: ["-c", "/config/checkrr.yaml"]
+    ports:
+      - 8585:8585
+    volumes:
+      - /var/lib/homelab-media-configs/checkrr:/config
+      # Read-only: bad files are removed through the Sonarr/Radarr API, not directly
+      - /mnt/media:/data:ro
+    environment:
+      - TZ=${TZ}
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://127.0.0.1:8585/ || exit 1
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - media_network
 

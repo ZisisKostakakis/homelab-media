@@ -1,0 +1,61 @@
+# Checkrr — library integrity scanner (https://github.com/aetaric/checkrr)
+#
+# Copy to /var/lib/homelab-media-configs/checkrr/checkrr.yaml on the host and
+# fill in the API keys. The real file holds secrets and is never committed.
+#
+# Paths are identical to what Sonarr/Radarr see (/mnt/media is mounted at
+# /data in all three containers), so no arr path mappings are needed.
+lang: "en-us"
+checkrr:
+  checkpath:
+    - "/data/movies/"
+    - "/data/tv/"
+  database: /config/checkrr.db
+  csvfile: /config/badfiles.csv
+  debug: false
+  # Full scans read every file header; weekly keeps disk I/O down. After the
+  # first run only new/changed files are probed (hashes are cached in the db).
+  cron: "@weekly"
+  ignorehidden: true
+  ffprobe: true
+  requireaudio: true
+  ignoreexts:
+    - .txt
+    - .nfo
+    - .nzb
+    - .url
+    - .srt
+    - .sub
+    - .idx
+    - .ass
+    - .jpg
+    - .png
+logs:
+  stdout:
+    out: stdout
+    formatter: default
+arr:
+  # process: false = report only (badfiles.csv + web UI). Review the first run,
+  # then set true to have the arr delete the bad file and search for a new one.
+  radarr:
+    process: false
+    service: radarr
+    address: gluetun   # *arr apps share gluetun's network namespace
+    apikey: ""
+    baseurl: /
+    port: 7878
+    ssl: false
+  sonarr:
+    process: false
+    service: sonarr
+    address: gluetun
+    apikey: ""
+    baseurl: /
+    port: 8989
+    ssl: false
+webserver:
+  port: 8585
+  tls: false
+  baseurl: "/"
+  trustedproxies:
+    - 127.0.0.1

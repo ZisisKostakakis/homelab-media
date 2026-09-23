@@ -140,6 +140,7 @@ backup_service "bazarr"            # Subtitle downloader config
 backup_service "seerr"             # Request system config
 backup_service "maintainerr"       # Media cleanup rules
 backup_service "wizarr"            # Invite links, users, Plex connection
+backup_service "checkrr"           # Scanner config and file-hash database
 backup_service "qbittorrent"       # Torrent client settings (excluding torrents)
 backup_service "recyclarr"         # Quality profile configs
 backup_service "plex"              # Plex server preferences

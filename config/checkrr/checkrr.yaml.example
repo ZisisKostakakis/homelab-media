@@ -53,6 +53,15 @@ arr:
     baseurl: /
     port: 8989
     ssl: false
+notifications:
+  # Same ntfy server as the other homelab alerts; leave topic blank to disable.
+  ntfy:
+    host: "https://ntfy.sh"
+    topic: ""
+    notificationtypes:
+      - reacquire        # a bad file was handed to Sonarr/Radarr
+      - unknowndetected  # file type checkrr can't identify
+      - endrun           # weekly summary
 webserver:
   port: 8585
   tls: false

@@ -48,7 +48,7 @@ graph TB
     end
 
     subgraph SERVICES["⚙️ Services Stack"]
-        SR["Seerr · Maintainerr · Wizarr\nFilebrowser · Picard"]
+        SR["Seerr · Maintainerr · Wizarr\nFilebrowser · Picard · Checkrr"]
         SH["Autoheal · gluetun-monitor"]
         OPS["Portainer · Beszel"]
     end
@@ -110,6 +110,7 @@ Most services in this stack run inside the Gluetun VPN network namespace. They c
 | **Filebrowser** | `filebrowser/filebrowser` | 8181 | Web-based file manager for `/mnt/media` |
 | **Picard** | `jlesage/musicbrainz-picard` | 5800 | MusicBrainz Picard music tagger (web UI) |
 | **Wizarr** | `wizarrrr/wizarr` | 5690 | Self-service Plex/Seerr invite onboarding (Tailscale-only) |
+| **Checkrr** | `aetaric/checkrr` | 8585 | Weekly corrupt-media scan; re-acquires bad files via Sonarr/Radarr |
 | **Autoheal** | `willfarrell/autoheal` | — | Restarts any container failing its healthcheck |
 | **gluetun-monitor** | `alpine` (custom script) | — | Cascade restarts torrent stack when Gluetun restarts |
 | **Portainer** | `portainer/portainer-ce` | 9443 | Docker management UI |
@@ -122,6 +123,23 @@ through Seerr. First run: create the admin account, connect Plex (URL + token),
 then set the Seerr URL in the onboarding steps. Use the Tailscale MagicDNS name
 as the base URL so invites work for tailnet friends — Wizarr is not exposed
 publicly. Smoke test: generate an invite and redeem it from a tailnet device.
+
+#### Checkrr
+
+Checkrr (`:8585`) scans `/data/movies` and `/data/tv` weekly with ffprobe and
+caches file hashes, so only new or changed files are re-probed after the first
+run. Setup:
+
+```bash
+sudo mkdir -p /var/lib/homelab-media-configs/checkrr
+sudo cp config/checkrr/checkrr.yaml.example /var/lib/homelab-media-configs/checkrr/checkrr.yaml
+# add the Sonarr/Radarr API keys and (optionally) an ntfy topic, then:
+./stack-manage.sh services start
+```
+
+It starts report-only (`process: false`): results land in the web UI and
+`badfiles.csv`. Once the first scan looks sane, set `process: true` per arr so
+bad files are deleted through the arr API and searched again.
 
 ### Music Stack (`docker-compose-music.yml`)
 
@@ -357,6 +375,7 @@ All application configs are stored outside the repo at `/var/lib/homelab-media-c
 | Portainer | `:9443` | services | host | Docker management |
 | Beszel | `:8090` | services | bridge | System monitoring |
 | Wizarr | `:5690` | services | bridge | Plex invite onboarding |
+| Checkrr | `:8585` | services | bridge | Library integrity scans |
 | qBittorrent | `:8080` | torrent | VPN | Torrent client |
 | Sonarr | `:8989` | torrent | VPN | TV automation |
 | Radarr | `:7878` | torrent | VPN | Movie automation |

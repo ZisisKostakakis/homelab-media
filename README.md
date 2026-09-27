@@ -175,6 +175,30 @@ Access Grafana at `:3001` (login `admin` / `GRAFANA_ADMIN_PASSWORD`) over Tailsc
    `docker run --rm --name test-logger alpine sh -c 'for i in $(seq 1 200); do echo "ERROR test $i"; done'`
    Within ~15m the HighErrorRate rule fires → Alertmanager → ntfy notification.
 
+#### Alert rules
+
+Rules live in `config/logging/loki-rules/homelab/alerts.yml` and are linted in CI.
+
+| Alert | Severity | Fires when |
+|-------|----------|------------|
+| HighErrorRate | warning | A container logs >0.2 error lines/s for 10m |
+| CascadeRestartFailed | critical | gluetun-monitor exhausted its cascade restart attempts |
+| GluetunFlapping | warning | Gluetun restarted 3+ times in an hour |
+| PortForwardingDead | warning | Watchdog found no forwarded port for 15m+ |
+| WatchdogRestartSuppressed | critical | Watchdog hit `WATCHDOG_MAX_RESTARTS_PER_HOUR` |
+| ContainerRestartLoop | warning | autoheal restarted the same container 3+ times in 30m |
+| AutohealRestartFailed | critical | `docker restart` from autoheal returned an error |
+| ArrImportFailures | warning | Sonarr/Radarr/Lidarr logged 3+ failed imports in an hour |
+| ArrDownloadPathMissing | critical | An *arr cannot see its download path |
+
+Alertmanager sends critical alerts after 10s and repeats them hourly (warnings:
+30s / 4h). A failed cascade restart inhibits the VPN, import and error-rate
+alerts it causes; a missing download path inhibits that app's import failures.
+
+Dashboards: **Homelab Container Logs** (volume, error rate, live tail) and
+**Homelab VPN & Downloads** (gluetun restarts, watchdog events, autoheal
+restarts, import failures).
+
 ---
 
 ## Automation Pipelines
@@ -533,9 +557,12 @@ The primary operations tool. Wraps `docker compose` commands for each stack:
 
 # Register the weekly S3 disaster-recovery backup job (self-registers, safe to re-run)
 ./scripts/cron-jobs/backup-to-s3.sh --install
+
+# Register the weekly restore test of that backup (self-registers, safe to re-run)
+./scripts/cron-jobs/verify-backup.sh --install
 ```
 
-The update job runs every Sunday at 06:00 UK time (`CRON_TZ=Europe/London`) and calls `bash stack-manage.sh all update`. The S3 backup job runs every Sunday at 08:00 UK time — two hours later, so containers have fully settled after the update before their configs are archived.
+The update job runs every Sunday at 06:00 UK time (`CRON_TZ=Europe/London`) and calls `bash stack-manage.sh all update`. The S3 backup job runs every Sunday at 08:00 UK time — two hours later, so containers have fully settled after the update before their configs are archived. The verify job runs at 10:00 and test-restores whatever the backup job uploaded.
 
 ### backup-config.sh
 
@@ -558,6 +585,7 @@ Includes: all service configs, docker-compose files, `.env`. Excludes: media fil
 |---|---|
 | `scripts/install-rclone.sh` | Idempotent rclone installer (official static binary). |
 | `scripts/cron-jobs/backup-to-s3.sh` | Builds a fresh archive, uploads it encrypted to S3. `--install` self-registers the weekly cron job; `--dry-run` previews without uploading. |
+| `scripts/cron-jobs/verify-backup.sh` | Downloads the newest archive to a temp dir and checks age, tar integrity, checksums, core service DBs and SQLite `quick_check`. Alerts via `BACKUP_NTFY_TOPIC`. `--install` registers Sundays 10:00. |
 | `scripts/restore-from-s3.sh` | Lists / downloads / decrypts / verifies a remote archive and prints the rehydration runbook. `--list`, `--archive NAME`, `--dry-run`. |
 
 **Setup (one-time, per host):**
@@ -589,8 +617,9 @@ echo test > /tmp/t.txt && rclone copy /tmp/t.txt s3-dr-crypt: \
   && rclone ls s3-dr:your-dr-bucket/torrent-vm   # filename should be obfuscated
 rclone delete s3-dr-crypt:t.txt && rm /tmp/t.txt
 
-# 4. Register the weekly backup cron job
+# 4. Register the weekly backup and restore-test cron jobs
 ./scripts/cron-jobs/backup-to-s3.sh --install
+./scripts/cron-jobs/verify-backup.sh --install
 ```
 
 > **If uploads fail with `AccessDenied ... s3:CreateBucket`**, the base remote is missing `no_check_bucket = true`. Fix with:
@@ -648,7 +677,9 @@ Categories tracked: `auth`, `network`, `database`, `disk`, `permissions`. See `-
 
 ### scripts/healthcheck.sh
 
-Verifies every service defined in any `docker-compose-*.yml` is currently running. Exits non-zero on missing services — wire into cron + paging.
+Verifies every service defined in any `docker-compose-*.yml` is running and not
+failing its Docker healthcheck. Exits non-zero on missing or unhealthy services —
+wire into cron + paging. Services behind a compose `profiles:` key are skipped.
 
 ```bash
 ./scripts/healthcheck.sh           # human-readable

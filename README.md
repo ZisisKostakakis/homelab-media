@@ -148,7 +148,8 @@ can serve ebooks alongside audiobooks.
 |--------|-------------|
 | Any browser | `http://<host>:8083` — built-in EPUB/PDF/CBZ reader |
 | KOReader, Moon+ Reader, Panels, Aldiko | OPDS feed at `http://<host>:8083/opds` |
-| Kobo e-reader | Kobo sync endpoint (enable per-user in CWA settings) |
+| Kobo e-reader | Kobo sync (enabled; generate a per-user token in CWA → Users) |
+| KOReader progress sync | `http://<host>:8083/koreader` (enabled; syncs reading position across devices) |
 | Audiobookshelf app (iOS/Android) | `http://<host>:13378` |
 
 **Finding and downloading books.** There are three routes into the library, all
@@ -776,11 +777,33 @@ curl -s http://localhost:3100/ready   # Loki readiness
 | CWA logs `no such table: book_format_checksums` | Upstream CWA bug — the KOReader-sync migration is never called at startup (v4.0.7) | Harmless unless you use KOReader sync. To fix, see "Books: KOReader checksum table" below |
 | Books dropped in `ingest/` never appear | Wrong ownership on the ingest folder | CWA runs as `PUID/PGID` (1000:1000): `chown -R 1000:1000 /mnt/media/books` |
 | Prowlarr grab fails: "torrent download isn't configured" | No download client in Prowlarr — its own config, separate from Sonarr/Radarr | Settings → Download Clients → add qBittorrent at `localhost:8080`, category `books` |
-| Books land in `library/Unknown/` | The EPUB has no author in its own metadata | Not a config fault — check with `ebook-meta file.epub`. Fix in CWA: Edit Metadata → fetch by ISBN |
+| Books land in `library/Unknown/` | The EPUB carries no author of its own, and the online lookup could not recover it | Check the file with `ebook-meta file.epub`. Automatic fetch is enabled, but a junk author in the file poisons the search query (see "Books: metadata fetching" below). Fix per-book in CWA: Edit Metadata → fetch by ISBN |
+| Metadata fetch returns the wrong book | Provider matched on a poisoned `title + author` query, or Google Books is rate-limited | IBDb is first in the hierarchy and does most of the work; Google Books 429s without an API key. Correct per-book in CWA's metadata editor |
 | Book downloads finish but never reach the library | Torrent not in the `books` category, so the hook skipped it | The hook only acts on category `books`. Re-run by hand: `docker exec qbittorrent /config/scripts/book-ingest.sh --path "%F"`. Check `/var/lib/homelab-media-configs/qbittorrent/book-ingest.log` |
 | Hook ran but CWA ignored the file | Format CWA cannot read, or a partial copy | The hook copies to `.incoming-*` then renames, so partials shouldn't appear. Check CWA logs: `./stack-manage.sh books logs calibre-web-automated` |
 | LazyLibrarian finds nothing | No providers configured | LL does not inherit Prowlarr's indexers automatically — add them under Config → Providers as Torznab feeds |
 | Audiobookshelf app can't connect | Using `localhost` instead of the host's LAN/Tailscale IP | Use `http://<host-ip>:13378`. The container listens on port 80 internally; 13378 is the host port |
+
+### Books: metadata fetching
+
+`auto_metadata_fetch_enabled` is **on**, with `auto_metadata_smart_application`
+also on so a fetched value only replaces an existing one when it is better (a
+longer title or description, or a field that was empty) instead of overwriting
+good data. Provider order is `["ibdb", "google", "dnb"]`; an empty
+`metadata_providers_enabled` map means *all* providers are enabled, not none.
+
+Two limits worth knowing, both verified on this host:
+
+- The lookup query is built from the file's own title **and** author. A file that
+  says `Author(s): Unknown` searches for `"<title> Unknown"`, and IBDb has real
+  records whose author literally is "Unknown" — so a bad author in the file can
+  match the wrong book and stick. A title-only search returns the right result.
+- Google Books returns **429 Too Many Requests** without an API key, so in
+  practice IBDb does the matching and Google is not a dependable fallback.
+
+Net effect: metadata is much better than the embedded-only default, but not
+infallible. Check new imports for a plausible author, and fix outliers in CWA's
+metadata editor (Edit Metadata → fetch by ISBN is reliable when the file has one).
 
 ### Books: KOReader checksum table
 

@@ -28,6 +28,7 @@ declare -A COMPOSE_PROJECTS=(
     ["homelab-plex"]="docker-compose-plex.yml"
     ["homelab-services"]="docker-compose-services.yml"
     ["homelab-music"]="docker-compose-music.yml"
+    ["homelab-books"]="docker-compose-books.yml"
 )
 
 # --- Categorisation table -------------------------------------------------

@@ -1,0 +1,70 @@
+# Books Stack
+# Calibre-Web Automated - ebook library, browser reader, OPDS + Kobo sync
+# Audiobookshelf      - audiobook/podcast server with its own mobile apps
+#
+# Both serve mobile apps over OPDS (KOReader, Moon+ Reader, Panels) or their
+# own native apps (Audiobookshelf). Drop files into /mnt/media/books/ingest
+# and CWA converts + imports them into the Calibre library automatically.
+
+services:
+  calibre-web-automated:
+    image: crocodilestick/calibre-web-automated:latest
+    container_name: calibre-web-automated
+    restart: unless-stopped
+    ports:
+      - "${CWA_PORT:-8083}:8083"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      # Network mounts (NFS/SMB) break Calibre's file locking; the library
+      # lives on local disk here, so the default off is correct.
+      - NETWORK_SHARE_MODE=false
+    volumes:
+      - /var/lib/homelab-media-configs/calibre-web-automated:/config
+      # The Calibre library itself — CWA creates metadata.db here on first run.
+      - /mnt/media/books/library:/calibre-library
+      # Watched folder: anything dropped here is converted, tagged and imported,
+      # then removed. Writable by design (CWA deletes the source after ingest).
+      - /mnt/media/books/ingest:/cwa-book-ingest
+    networks:
+      - media_network
+    # Image ships its own healthcheck against :8083; restated here so autoheal
+    # gets a longer start_period — first boot builds the Calibre library.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsL http://localhost:8083/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 3m
+
+  audiobookshelf:
+    image: advplyr/audiobookshelf:latest
+    container_name: audiobookshelf
+    restart: unless-stopped
+    user: "${PUID}:${PGID}"
+    ports:
+      - "${AUDIOBOOKSHELF_PORT:-13378}:80"
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - /var/lib/homelab-media-configs/audiobookshelf:/config
+      - /var/lib/homelab-media-configs/audiobookshelf-metadata:/metadata
+      - /mnt/media/books/audiobooks:/audiobooks
+      - /mnt/media/books/podcasts:/podcasts
+      # Ebooks are read-only here: Audiobookshelf can serve them to its app,
+      # but CWA owns the library and is the only writer.
+      - /mnt/media/books/library:/ebooks:ro
+    networks:
+      - media_network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/healthcheck || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 1m
+
+networks:
+  media_network:
+    external: true
+    name: homelab_media_network

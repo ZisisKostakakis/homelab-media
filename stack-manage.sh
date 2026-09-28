@@ -47,7 +47,7 @@ show_usage() {
     echo "  torrent   - VPN and download automation (Gluetun, qBit, *arr, Lidarr)"
     echo "  plex      - Media server (Plex, SuggestArr)"
     echo "  music     - Music stack (Navidrome, AudioMuse)"
-    echo "  books     - Books stack (Calibre-Web Automated, Audiobookshelf)"
+    echo "  books     - Books stack (CWA, Audiobookshelf, LazyLibrarian)"
     echo "  logging   - Centralized logs (Loki, Promtail, Grafana, Alertmanager)"
     echo "  all       - All stacks"
     echo ""

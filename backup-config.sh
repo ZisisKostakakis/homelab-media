@@ -147,6 +147,7 @@ backup_service "gluetun"           # VPN configuration
 backup_service "navidrome"         # Music server config and database
 backup_service "calibre-web-automated"  # Ebook library users, settings, CWA ingest rules
 backup_service "audiobookshelf"    # Audiobook users, progress and library config
+backup_service "lazylibrarian"     # Book search providers, wanted list, author follows
 
 # Backup docker-compose and environment files
 echo ""

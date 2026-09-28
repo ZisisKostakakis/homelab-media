@@ -83,7 +83,8 @@ mkdir -p \
     "$CONFIG_BASE/alertmanager" \
     "$CONFIG_BASE/calibre-web-automated" \
     "$CONFIG_BASE/audiobookshelf" \
-    "$CONFIG_BASE/audiobookshelf-metadata"
+    "$CONFIG_BASE/audiobookshelf-metadata" \
+    "$CONFIG_BASE/lazylibrarian"
 
 # Logging containers run as non-root, image-specific UIDs and mkdir their
 # data on first run. If they are first created together they can inherit the
@@ -149,7 +150,7 @@ echo "Starting music stack..."
 "$SCRIPT_DIR/stack-manage.sh" music start
 wait_for_stack music 90
 
-echo "Starting books stack (Calibre-Web Automated, Audiobookshelf)..."
+echo "Starting books stack (Calibre-Web Automated, Audiobookshelf, LazyLibrarian)..."
 "$SCRIPT_DIR/stack-manage.sh" books start
 wait_for_stack books 120
 
@@ -183,5 +184,6 @@ echo ""
 echo "Books:"
 echo "  Calibre-Web:    http://<your-ip>:8083      (OPDS: /opds)"
 echo "  Audiobookshelf: http://<your-ip>:13378"
+echo "  LazyLibrarian:  http://<your-ip>:5299"
 echo ""
 echo "Check container logs for VPN/proxy errors. Ensure your VPN credentials and API keys are correctly set in .env file. Ready to roll!"

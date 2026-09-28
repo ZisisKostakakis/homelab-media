@@ -1,6 +1,7 @@
 # Books Stack
 # Calibre-Web Automated - ebook library, browser reader, OPDS + Kobo sync
-# Audiobookshelf      - audiobook/podcast server with its own mobile apps
+# Audiobookshelf        - audiobook/podcast server with its own mobile apps
+# LazyLibrarian         - book search/automation: follow authors, grab releases
 #
 # Both serve mobile apps over OPDS (KOReader, Moon+ Reader, Panels) or their
 # own native apps (Audiobookshelf). Drop files into /mnt/media/books/ingest
@@ -63,6 +64,39 @@ services:
       timeout: 10s
       retries: 3
       start_period: 1m
+
+  # Book search and automation. Talks to Prowlarr for indexers and qBittorrent
+  # for downloads, then hands finished ebooks to CWA by writing into the same
+  # ingest folder — it never touches the Calibre library directly.
+  #
+  # Not routed through Gluetun: LazyLibrarian only queries indexer APIs and
+  # qBittorrent (which is itself behind the VPN and does the actual peer
+  # traffic), so no torrent traffic ever leaves this container.
+  lazylibrarian:
+    image: lscr.io/linuxserver/lazylibrarian:latest
+    container_name: lazylibrarian
+    restart: unless-stopped
+    ports:
+      - "${LAZYLIBRARIAN_PORT:-5299}:5299"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      # ffmpeg for audiobook handling, calibre for ebook conversion
+      - DOCKER_MODS=linuxserver/mods:universal-calibre|linuxserver/mods:lazylibrarian-ffmpeg
+    volumes:
+      - /var/lib/homelab-media-configs/lazylibrarian:/config
+      # Same view of the media tree qBittorrent has, so completed-download paths
+      # match what qBittorrent reports and post-processing can find the files.
+      - /mnt/media:/data
+    networks:
+      - media_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsL http://localhost:5299/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 2m
 
 networks:
   media_network:

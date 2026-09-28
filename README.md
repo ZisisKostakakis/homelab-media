@@ -60,8 +60,10 @@ graph TB
     end
 
     subgraph BOOKS["📚 Books Stack"]
+        LL["LazyLibrarian"]
         CWA["Calibre-Web Automated"]
         ABS["Audiobookshelf"]
+        LL -->|"ingest folder"| CWA
         CWA -.->|"library (ro)"| ABS
     end
 
@@ -138,6 +140,7 @@ can serve ebooks alongside audiobooks.
 |---------|-------|------|------|
 | **Calibre-Web Automated** | `crocodilestick/calibre-web-automated` | 8083 | Ebook library, browser reader, OPDS feed, Kobo sync |
 | **Audiobookshelf** | `advplyr/audiobookshelf` | 13378 | Audiobook + podcast server with native iOS/Android apps |
+| **LazyLibrarian** | `linuxserver/lazylibrarian` | 5299 | Book search + automation: follow authors, auto-grab releases |
 
 **Reading on a phone or e-reader:**
 
@@ -148,9 +151,51 @@ can serve ebooks alongside audiobooks.
 | Kobo e-reader | Kobo sync endpoint (enable per-user in CWA settings) |
 | Audiobookshelf app (iOS/Android) | `http://<host>:13378` |
 
-**Ingest:** drop any ebook into `/mnt/media/books/ingest` and CWA converts it to
-EPUB, fetches metadata and a cover, files it under `library/Author/Title/`, then
-deletes the source. No *arr app is involved — Readarr is retired upstream.
+**Finding and downloading books.** There are three routes into the library, all
+ending at the same ingest folder:
+
+1. **Manual drop** — copy any ebook into `/mnt/media/books/ingest`. CWA converts
+   it to EPUB, fetches metadata and a cover, files it under
+   `library/Author/Title/`, then deletes the source.
+2. **Prowlarr search** (`:9696`) — search with category `Books`/`EBooks`, grab a
+   result to qBittorrent with the **`books`** category. When the torrent
+   finishes, qBittorrent's on-completion hook copies the ebook into the ingest
+   folder. Good for "I want this one specific book".
+3. **LazyLibrarian** (`:5299`) — follow an author or add a title to the wanted
+   list and it searches your Prowlarr indexers on a schedule, sends grabs to
+   qBittorrent under the `books` category, and post-processes into the ingest
+   folder. Good for "tell me when the next one is out".
+
+Readarr is deliberately absent — it is archived upstream, and its metadata server
+was its perennial failure point.
+
+**The ingest hook** (`scripts/book-ingest.sh`, installed at
+`/var/lib/homelab-media-configs/qbittorrent/scripts/`) is set as qBittorrent's
+"Run external program on torrent finished":
+
+```
+/config/scripts/book-ingest.sh --path "%F" --name "%N" --category "%L"
+```
+
+It **copies** rather than moves, so qBittorrent keeps seeding — CWA deletes what
+it ingests, which would otherwise destroy the seeding file. It ignores every
+torrent whose category is not `books`, so movie and TV grabs are untouched.
+Ebooks go to `books/ingest`; audiobook files (`m4b`, `mp3`, …) go straight to
+`books/audiobooks` for Audiobookshelf, since CWA cannot do anything with them.
+
+Run it by hand to sweep a finished download:
+
+```bash
+docker exec qbittorrent /config/scripts/book-ingest.sh \
+    --path "/data/downloads/complete/books/Some Book" --dry-run
+```
+
+**Coverage expectation:** popular English-language titles are well served by the
+existing indexers (a *Project Hail Mary* EPUB search returns results with 100+
+seeders). Mid-list, academic and non-English books are patchy, and out-of-print
+or translated work is often absent entirely. For one specific title it is worth
+checking a library service (Libby/OverDrive) or Standard Ebooks / Project
+Gutenberg for public-domain work first.
 
 ### Logging Stack (`docker-compose-logging.yml`)
 
@@ -496,7 +541,8 @@ After all containers are running, configure in this order:
 8. **Maintainerr** (`:6246`) — Connect Plex and Seerr, then define cleanup rules.
 9. **Tautulli** (`:8787`) — Configure notification agent to call `/scripts/plex-qbit-manager.py` on playback start/stop events (pauses torrents during Plex streams).
 10. **Calibre-Web Automated** (`:8083`) — Log in as `admin` / `admin123` and **change the password immediately**. The library is auto-detected at `/calibre-library`. For phone reading the OPDS feed is already live at `/opds`; for Kobo devices or KOReader progress sync, enable those under Admin → Basic Configuration → Feature Configuration.
-11. **Audiobookshelf** (`:13378`) — Create the admin account on first load, then add libraries: `/audiobooks` (Book type), `/podcasts` (Podcast type), and optionally `/ebooks` (read-only view of the Calibre library). Install the Audiobookshelf app on your phone and point it at the same URL.
+11. **LazyLibrarian** (`:5299`) — paths and qBittorrent are pre-configured from `.env`. Add indexers under Config → Providers (point it at your Prowlarr Torznab feeds, API key from Prowlarr → Settings → General), then set a metadata source under Config → Book/Author search (Google Books needs no key). Verify Config → Processing shows `/data/books/ingest`.
+12. **Audiobookshelf** (`:13378`) — Create the admin account on first load, then add libraries: `/audiobooks` (Book type), `/podcasts` (Podcast type), and optionally `/ebooks` (read-only view of the Calibre library). Install the Audiobookshelf app on your phone and point it at the same URL.
 
 ---
 
@@ -719,6 +765,9 @@ curl -s http://localhost:3100/ready   # Loki readiness
 | Torrents not resuming after Plex stops | Stream counter mismatch | Check `/config/logs/plex-qbit-sessions.count` in the Tautulli container. Reset to `0` if stuck |
 | CWA logs `no such table: book_format_checksums` | Upstream CWA bug — the KOReader-sync migration is never called at startup (v4.0.7) | Harmless unless you use KOReader sync. To fix, see "Books: KOReader checksum table" below |
 | Books dropped in `ingest/` never appear | Wrong ownership on the ingest folder | CWA runs as `PUID/PGID` (1000:1000): `chown -R 1000:1000 /mnt/media/books` |
+| Book downloads finish but never reach the library | Torrent not in the `books` category, so the hook skipped it | The hook only acts on category `books`. Re-run by hand: `docker exec qbittorrent /config/scripts/book-ingest.sh --path "%F"`. Check `/var/lib/homelab-media-configs/qbittorrent/book-ingest.log` |
+| Hook ran but CWA ignored the file | Format CWA cannot read, or a partial copy | The hook copies to `.incoming-*` then renames, so partials shouldn't appear. Check CWA logs: `./stack-manage.sh books logs calibre-web-automated` |
+| LazyLibrarian finds nothing | No providers configured | LL does not inherit Prowlarr's indexers automatically — add them under Config → Providers as Torznab feeds |
 | Audiobookshelf app can't connect | Using `localhost` instead of the host's LAN/Tailscale IP | Use `http://<host-ip>:13378`. The container listens on port 80 internally; 13378 is the host port |
 
 ### Books: KOReader checksum table

@@ -145,6 +145,8 @@ backup_service "plex"              # Plex server preferences
 backup_service "tautulli"          # Play history database
 backup_service "gluetun"           # VPN configuration
 backup_service "navidrome"         # Music server config and database
+backup_service "calibre-web-automated"  # Ebook library users, settings, CWA ingest rules
+backup_service "audiobookshelf"    # Audiobook users, progress and library config
 
 # Backup docker-compose and environment files
 echo ""

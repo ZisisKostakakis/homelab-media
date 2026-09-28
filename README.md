@@ -1,6 +1,6 @@
 # Homelab Media Stack
 
-![Stacks](https://img.shields.io/badge/stacks-5-blue)
+![Stacks](https://img.shields.io/badge/stacks-6-blue)
 ![Services](https://img.shields.io/badge/services-35%2B-green)
 ![VPN](https://img.shields.io/badge/VPN-ProtonVPN%20WireGuard-purple)
 ![License](https://img.shields.io/badge/license-personal-lightgrey)
@@ -57,6 +57,12 @@ graph TB
         DB["Redis · Postgres"]
         NAV --- AM
         DB --- AM
+    end
+
+    subgraph BOOKS["📚 Books Stack"]
+        CWA["Calibre-Web Automated"]
+        ABS["Audiobookshelf"]
+        CWA -.->|"library (ro)"| ABS
     end
 
     SR -->|"requests"| ARR
@@ -121,6 +127,30 @@ Most services in this stack run inside the Gluetun VPN network namespace. They c
 | **AudioMuse (worker)** | `neptunehub/audiomuse-ai` | — | Background AI analysis worker |
 | **audiomuse-redis** | `redis:7-alpine` | — | Task queue for AudioMuse workers |
 | **audiomuse-postgres** | `postgres:15-alpine` | — | Persistent database for AudioMuse |
+
+### Books Stack (`docker-compose-books.yml`)
+
+Ebooks and audiobooks. Calibre-Web Automated owns the Calibre library and is the
+only writer; Audiobookshelf mounts the same library read-only so its mobile app
+can serve ebooks alongside audiobooks.
+
+| Service | Image | Port | Role |
+|---------|-------|------|------|
+| **Calibre-Web Automated** | `crocodilestick/calibre-web-automated` | 8083 | Ebook library, browser reader, OPDS feed, Kobo sync |
+| **Audiobookshelf** | `advplyr/audiobookshelf` | 13378 | Audiobook + podcast server with native iOS/Android apps |
+
+**Reading on a phone or e-reader:**
+
+| Client | Connect via |
+|--------|-------------|
+| Any browser | `http://<host>:8083` — built-in EPUB/PDF/CBZ reader |
+| KOReader, Moon+ Reader, Panels, Aldiko | OPDS feed at `http://<host>:8083/opds` |
+| Kobo e-reader | Kobo sync endpoint (enable per-user in CWA settings) |
+| Audiobookshelf app (iOS/Android) | `http://<host>:13378` |
+
+**Ingest:** drop any ebook into `/mnt/media/books/ingest` and CWA converts it to
+EPUB, fetches metadata and a cover, files it under `library/Author/Title/`, then
+deletes the source. No *arr app is involved — Readarr is retired upstream.
 
 ### Logging Stack (`docker-compose-logging.yml`)
 
@@ -298,6 +328,16 @@ cross-seed → qBit:   http://localhost:8080
 │   └── Artist/
 │       └── Album/
 │           └── Track.flac
+├── books/                  # Books library
+│   ├── library/            # Calibre library — CWA is the only writer
+│   │   └── Author/
+│   │       └── Title/
+│   │           ├── Title - Author.epub
+│   │           ├── cover.jpg
+│   │           └── metadata.opf
+│   ├── ingest/             # Drop zone — CWA imports then deletes the source
+│   ├── audiobooks/         # Audiobookshelf library
+│   └── podcasts/           # Audiobookshelf podcast downloads
 └── transcode/              # Plex temporary transcode buffer
 ```
 
@@ -437,6 +477,9 @@ Start services in this order to avoid dependency failures:
 
 # 4. Start the music stack
 ./stack-manage.sh music start
+
+# 5. Start the books stack
+./stack-manage.sh books start
 ```
 
 ### First-Time Configuration Order
@@ -452,6 +495,8 @@ After all containers are running, configure in this order:
 7. **Seerr** (`:5055`) — Connect to Plex, then connect Sonarr and Radarr.
 8. **Maintainerr** (`:6246`) — Connect Plex and Seerr, then define cleanup rules.
 9. **Tautulli** (`:8787`) — Configure notification agent to call `/scripts/plex-qbit-manager.py` on playback start/stop events (pauses torrents during Plex streams).
+10. **Calibre-Web Automated** (`:8083`) — Log in as `admin` / `admin123` and **change the password immediately**. The library is auto-detected at `/calibre-library`. For phone reading the OPDS feed is already live at `/opds`; for Kobo devices or KOReader progress sync, enable those under Admin → Basic Configuration → Feature Configuration.
+11. **Audiobookshelf** (`:13378`) — Create the admin account on first load, then add libraries: `/audiobooks` (Book type), `/podcasts` (Podcast type), and optionally `/ebooks` (read-only view of the Calibre library). Install the Audiobookshelf app on your phone and point it at the same URL.
 
 ---
 
@@ -464,7 +509,7 @@ The primary operations tool. Wraps `docker compose` commands for each stack:
 ```bash
 ./stack-manage.sh <stack> <action> [service]
 
-# Stacks: services | torrent | plex | music | all
+# Stacks: services | torrent | plex | music | books | logging | all
 # Actions: start | stop | restart | down | pull | update | logs | status | health
 ```
 
@@ -672,6 +717,50 @@ curl -s http://localhost:3100/ready   # Loki readiness
 | gluetun-monitor in restart loop | Gluetun instability | Monitor pauses for 1 hour after 5 restarts/hour. Check `docker logs gluetun-monitor` and ntfy for the loop detection alert |
 | Seerr not showing Plex content | Plex not connected | Re-authenticate Plex in Seerr settings. Plex token may have expired |
 | Torrents not resuming after Plex stops | Stream counter mismatch | Check `/config/logs/plex-qbit-sessions.count` in the Tautulli container. Reset to `0` if stuck |
+| CWA logs `no such table: book_format_checksums` | Upstream CWA bug — the KOReader-sync migration is never called at startup (v4.0.7) | Harmless unless you use KOReader sync. To fix, see "Books: KOReader checksum table" below |
+| Books dropped in `ingest/` never appear | Wrong ownership on the ingest folder | CWA runs as `PUID/PGID` (1000:1000): `chown -R 1000:1000 /mnt/media/books` |
+| Audiobookshelf app can't connect | Using `localhost` instead of the host's LAN/Tailscale IP | Use `http://<host-ip>:13378`. The container listens on port 80 internally; 13378 is the host port |
+
+### Books: KOReader checksum table
+
+CWA v4.0.7 exports an `ensure_checksum_table()` migration but never calls it at
+startup, so `book_format_checksums` is missing from a fresh `metadata.db` and the
+checksum backfill logs an error on every boot. Browser reading, OPDS and Kobo sync
+are unaffected — only KOReader progress sync needs the table.
+
+To create it (safe to re-run — every statement is `IF NOT EXISTS`):
+
+```bash
+./stack-manage.sh books stop calibre-web-automated
+cp /mnt/media/books/library/metadata.db /tmp/metadata.db.bak   # always take a backup
+
+python3 - <<'EOF'
+import sqlite3
+c = sqlite3.connect('/mnt/media/books/library/metadata.db')
+c.executescript("""
+CREATE TABLE IF NOT EXISTS book_format_checksums (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    book INTEGER NOT NULL,
+    format TEXT NOT NULL COLLATE NOCASE,
+    checksum TEXT NOT NULL,
+    version TEXT NOT NULL DEFAULT 'koreader',
+    created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (book) REFERENCES books(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_checksum ON book_format_checksums(checksum);
+CREATE INDEX IF NOT EXISTS idx_checksum_version ON book_format_checksums(checksum, version);
+CREATE INDEX IF NOT EXISTS idx_book_format ON book_format_checksums(book, format);
+CREATE INDEX IF NOT EXISTS idx_created ON book_format_checksums(created);
+""")
+c.commit()
+EOF
+
+chown 1000:1000 /mnt/media/books/library/metadata.db*
+./stack-manage.sh books start calibre-web-automated
+```
+
+Startup should then log `[cwa-checksum-backfill] Database schema ready`. Re-check
+after a CWA major upgrade in case upstream starts shipping the migration.
 
 ---
 

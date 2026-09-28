@@ -157,10 +157,17 @@ ending at the same ingest folder:
 1. **Manual drop** — copy any ebook into `/mnt/media/books/ingest`. CWA converts
    it to EPUB, fetches metadata and a cover, files it under
    `library/Author/Title/`, then deletes the source.
-2. **Prowlarr search** (`:9696`) — search with category `Books`/`EBooks`, grab a
-   result to qBittorrent with the **`books`** category. When the torrent
-   finishes, qBittorrent's on-completion hook copies the ebook into the ingest
-   folder. Good for "I want this one specific book".
+2. **Prowlarr search** (`:9696`) — search with category `Books`/`EBooks` and hit
+   the grab button. Prowlarr sends it to qBittorrent under the **`books`**
+   category, and the on-completion hook copies the ebook into the ingest folder.
+   Good for "I want this one specific book".
+
+   This needs a download client configured *in Prowlarr itself* (Settings →
+   Download Clients → qBittorrent, host `localhost` port `8080`, category
+   `books`). Sonarr and Radarr each hold their own client config, so Prowlarr
+   has none by default and grabbing straight from its UI fails with
+   "torrent download isn't configured". Prowlarr shares Gluetun's network
+   namespace, which is why the host is `localhost` and not a container name.
 3. **LazyLibrarian** (`:5299`) — follow an author or add a title to the wanted
    list and it searches your Prowlarr indexers on a schedule, sends grabs to
    qBittorrent under the `books` category, and post-processes into the ingest
@@ -178,7 +185,10 @@ was its perennial failure point.
 ```
 
 It **copies** rather than moves, so qBittorrent keeps seeding — CWA deletes what
-it ingests, which would otherwise destroy the seeding file. It ignores every
+it ingests, which would otherwise destroy the seeding file. It reads `%F` (the
+torrent's actual content path), so it does not care where qBittorrent saved the
+files — the `books` category's save path is cosmetic here, because
+`auto_tmm_enabled` is off globally for the Sonarr/Radarr download layout. It ignores every
 torrent whose category is not `books`, so movie and TV grabs are untouched.
 Ebooks go to `books/ingest`; audiobook files (`m4b`, `mp3`, …) go straight to
 `books/audiobooks` for Audiobookshelf, since CWA cannot do anything with them.
@@ -765,6 +775,8 @@ curl -s http://localhost:3100/ready   # Loki readiness
 | Torrents not resuming after Plex stops | Stream counter mismatch | Check `/config/logs/plex-qbit-sessions.count` in the Tautulli container. Reset to `0` if stuck |
 | CWA logs `no such table: book_format_checksums` | Upstream CWA bug — the KOReader-sync migration is never called at startup (v4.0.7) | Harmless unless you use KOReader sync. To fix, see "Books: KOReader checksum table" below |
 | Books dropped in `ingest/` never appear | Wrong ownership on the ingest folder | CWA runs as `PUID/PGID` (1000:1000): `chown -R 1000:1000 /mnt/media/books` |
+| Prowlarr grab fails: "torrent download isn't configured" | No download client in Prowlarr — its own config, separate from Sonarr/Radarr | Settings → Download Clients → add qBittorrent at `localhost:8080`, category `books` |
+| Books land in `library/Unknown/` | The EPUB has no author in its own metadata | Not a config fault — check with `ebook-meta file.epub`. Fix in CWA: Edit Metadata → fetch by ISBN |
 | Book downloads finish but never reach the library | Torrent not in the `books` category, so the hook skipped it | The hook only acts on category `books`. Re-run by hand: `docker exec qbittorrent /config/scripts/book-ingest.sh --path "%F"`. Check `/var/lib/homelab-media-configs/qbittorrent/book-ingest.log` |
 | Hook ran but CWA ignored the file | Format CWA cannot read, or a partial copy | The hook copies to `.incoming-*` then renames, so partials shouldn't appear. Check CWA logs: `./stack-manage.sh books logs calibre-web-automated` |
 | LazyLibrarian finds nothing | No providers configured | LL does not inherit Prowlarr's indexers automatically — add them under Config → Providers as Torznab feeds |

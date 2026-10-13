@@ -303,7 +303,24 @@ A local Whisper ASR provider was previously used as a last-resort fallback, but 
 
 ### 3. Quality Management Pipeline (Recyclarr)
 
-Recyclarr syncs quality profiles from [TRaSH Guides](https://trash-guides.info/) to Sonarr and Radarr on container start and on a schedule. This keeps custom formats, release group scoring, and quality cutoffs up to date with community recommendations without manual configuration.
+Recyclarr syncs quality profiles from [TRaSH Guides](https://trash-guides.info/) to Sonarr and Radarr once a day (container cron, `@daily`; restarting the container does **not** trigger a sync). This keeps custom formats, release group scoring, and quality cutoffs up to date with community recommendations without manual configuration.
+
+The live config is `/var/lib/homelab-media-configs/recyclarr/recyclarr.yml` (not in git), like every other service; `homelab-config-sync` copies it to `/mnt/media/config/recyclarr` every 6 hours as a backup, so never edit the copy there. Profiles are guide-backed (`quality_profiles[].trash_id`) with `name` overrides, so the existing profile names and assignments are kept and new guide revisions are picked up without editing the file:
+
+| App | Profile | TRaSH profile |
+|-----|---------|---------------|
+| Radarr | `HD - 1080p` | HD Bluray + WEB (Golden Rule HD blocks x265 HD encodes) |
+| Radarr | `Ultra-HD` | UHD Bluray + WEB, plus HDR10+ Boost and SDR blocked (DV Boost left out: DV profile 5 has no HDR fallback) |
+| Sonarr | `1080p` | WEB-1080p |
+
+The unused Radarr `Any` and Sonarr `720p` profiles are not managed. To sync now and see what changed:
+
+```bash
+docker exec recyclarr recyclarr sync --preview   # dry run
+docker exec recyclarr recyclarr sync
+```
+
+A failing daily run only shows in `/var/lib/homelab-media-configs/recyclarr/logs/cli/`, so check the newest log there if profiles look stale. The image's container logs are reset by the nightly update.
 
 ### 4. VPN Auto-Healing Pipeline (gluetun-monitor)
 
@@ -602,7 +619,7 @@ After all containers are running, configure in this order:
 3. **Radarr** (`:7878`) — Same as Sonarr.
 4. **Lidarr** (`:8686`) — Same as Sonarr/Radarr. For music downloads.
 5. **Bazarr** (`:6767`) — Connect Sonarr and Radarr. Add subtitle providers.
-6. **Recyclarr** — API keys are read from `.env` automatically. Run once to apply: `./stack-manage.sh torrent restart recyclarr`
+6. **Recyclarr** — API keys are read from `.env` automatically. Run once to apply: `docker exec recyclarr recyclarr sync` (a restart does not sync)
 7. **Seerr** (`:5055`) — Connect to Plex, then connect Sonarr and Radarr.
 8. **Maintainerr** (`:6246`) — Connect Plex and Seerr, then define cleanup rules.
 9. **Tautulli** (`:8787`) — Configure notification agent to call `/scripts/plex-qbit-manager.py` on playback start/stop events (pauses torrents during Plex streams).
@@ -857,7 +874,7 @@ under a fake `docker`/`df` on `PATH` (see `tests/test_healthcheck.py`).
 | Sonarr/Radarr can't reach qBittorrent | Network namespace stale after Gluetun restart | Wait for gluetun-monitor to cascade restart, or manually: `./stack-manage.sh torrent restart` |
 | Indexers returning no results | Cloudflare blocking | Verify FlareSolverr is healthy: `docker logs flaresolverr`. Check proxy tag in Prowlarr |
 | RAR archives not extracted | Unpackerr not polling | Check `docker logs unpackerr`. Verify API keys in `.env` match Sonarr/Radarr |
-| Wrong quality profiles | Recyclarr out of sync | `./stack-manage.sh torrent restart recyclarr` — view logs to see sync result |
+| Wrong quality profiles | Recyclarr out of sync or failing | `docker exec recyclarr recyclarr sync` — a restart does not sync. Check the newest file in `/var/lib/homelab-media-configs/recyclarr/logs/cli/` |
 | qBittorrent seeding stuck at 0 connections | VPN port not forwarded | Check `docker logs gluetun` for port forwarding messages. Proton requires port forwarding to be enabled on the server |
 | Plex can't find media | Hardlink path mismatch | Verify Sonarr/Radarr root folders are `/data/tv` and `/data/movies`. qBit must also use `/data/downloads` |
 | gluetun-monitor in restart loop | Gluetun instability | Monitor pauses for 1 hour after 5 restarts/hour. Check `docker logs gluetun-monitor` and ntfy for the loop detection alert |

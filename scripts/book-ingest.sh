@@ -54,7 +54,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 log() {
-    local line="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
+    local line
+    line="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
     echo "$line"
     # Best-effort file logging; a read-only or missing log dir must not break the
     # hook. The redirect itself can fail, so guard the whole thing in a subshell
